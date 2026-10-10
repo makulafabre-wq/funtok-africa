@@ -1,4 +1,4 @@
-export function Avatar({ url, name, size = 40, ring }: { url?: string | null; name?: string | null; size?: number; ring?: boolean }) {
+export function Avatar({ url, name, size = 40, ring }: { url?: string | null | undefined; name?: string | null | undefined; size?: number; ring?: boolean }) {
   const initial = (name ?? "?").charAt(0).toUpperCase();
   return (
     <span

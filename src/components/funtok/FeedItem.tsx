@@ -12,7 +12,7 @@ import { Caption } from "./Caption";
 import { CommentsSheet } from "./CommentsSheet";
 import { SendToChatSheet } from "./SendToChatSheet";
 
-export function FeedItem({ video, active, muted, onToggleMute, rank }: { video: FeedVideo; active: boolean; muted: boolean; onToggleMute: () => void; rank?: number }) {
+export function FeedItem({ video, active, muted, onToggleMute, rank }: { video: FeedVideo; active: boolean; muted: boolean; onToggleMute: () => void; rank?: number | undefined }) {
   const { user } = useAuth();
   const [liked, setLiked] = useState(false);
   const [likes, setLikes] = useState(video.likes_count);
@@ -26,7 +26,7 @@ export function FeedItem({ video, active, muted, onToggleMute, rank }: { video: 
   }, [user, video.id]);
 
   const toggleLike = async () => {
-    if (!user) return toast("Sign in to like videos");
+    if (!user) { toast("Sign in to like videos"); return; }
     const next = !liked;
     setLiked(next); setLikes((n) => n + (next ? 1 : -1)); setPop(true); setTimeout(() => setPop(false), 400);
     const res = next

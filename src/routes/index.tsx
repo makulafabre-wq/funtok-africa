@@ -22,9 +22,9 @@ const TABS: { id: FeedTab; label: string }[] = [
 ];
 
 export const Route = createFileRoute("/")({
-  validateSearch: (s: Record<string, unknown>): { tab?: FeedTab; v?: string } => ({
-    tab: TABS.some((t) => t.id === s.tab) ? (s.tab as FeedTab) : undefined,
-    v: typeof s.v === "string" ? s.v : undefined,
+  validateSearch: (s: Record<string, unknown>): { tab?: FeedTab | undefined; v?: string | undefined } => ({
+    tab: TABS.some((t) => t.id === s["tab"]) ? (s["tab"] as FeedTab) : undefined,
+    v: typeof s["v"] === "string" ? s["v"] : undefined,
   }),
   head: () => ({
     meta: [
