@@ -1,0 +1,12 @@
+{
+  "name": "Funtok",
+  "short_name": "Funtok",
+  "id": "com.funtok.app",
+  "description": "Fun Side videos and Chat Side messages — made in Kampala.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#000000",
+  "theme_color": "#FE2C55",
+  "icons": [{ "src": "/favicon.ico", "sizes": "64x64", "type": "image/x-icon" }]
+}
