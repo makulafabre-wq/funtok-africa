@@ -20,7 +20,7 @@ export function CommentsSheet({ videoId, open, onOpenChange, allowComments }: { 
   });
 
   const post = async () => {
-    if (!user) return toast("Sign in to comment");
+    if (!user) { toast("Sign in to comment"); return; }
     const t = text.trim();
     if (!t) return;
     setText("");

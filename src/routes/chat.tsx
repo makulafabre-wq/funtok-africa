@@ -18,7 +18,7 @@ import { BannerAd } from "@/components/funtok/Ads";
 import { VideoPlayer } from "@/components/funtok/VideoPlayer";
 
 export const Route = createFileRoute("/chat")({
-  validateSearch: (s: Record<string, unknown>): { user?: string } => ({ user: typeof s.user === "string" ? s.user : undefined }),
+  validateSearch: (s: Record<string, unknown>): { user?: string | undefined } => ({ user: typeof s["user"] === "string" ? s["user"] : undefined }),
   head: () => ({
     meta: [
       { title: "Chat Side — Funtok" },

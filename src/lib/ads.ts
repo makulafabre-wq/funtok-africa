@@ -3,14 +3,14 @@
  * Funtok's own ads from the database so placements still show something.
  */
 export const ADMOB = {
-  appId: (import.meta.env.VITE_ADMOB_APP_ID as string) || "ca-app-pub-3877753844959715~4589245523",
-  banner: (import.meta.env.VITE_ADMOB_BANNER_ID as string) || "ca-app-pub-3877753844959715/5252513944",
-  native: (import.meta.env.VITE_ADMOB_NATIVE_ID as string) || "ca-app-pub-3877753844959715/7084470360",
+  appId: (import.meta.env["VITE_ADMOB_APP_ID"] as string) || "ca-app-pub-3877753844959715~4589245523",
+  banner: (import.meta.env["VITE_ADMOB_BANNER_ID"] as string) || "ca-app-pub-3877753844959715/5252513944",
+  native: (import.meta.env["VITE_ADMOB_NATIVE_ID"] as string) || "ca-app-pub-3877753844959715/7084470360",
   // No interstitial/rewarded units were provided yet: these are Google's official test units.
-  interstitial: (import.meta.env.VITE_ADMOB_INTERSTITIAL_ID as string) || "ca-app-pub-3940256099942544/1033173712",
-  rewarded: (import.meta.env.VITE_ADMOB_REWARDED_ID as string) || "ca-app-pub-3940256099942544/5224354917",
+  interstitial: (import.meta.env["VITE_ADMOB_INTERSTITIAL_ID"] as string) || "ca-app-pub-3940256099942544/1033173712",
+  rewarded: (import.meta.env["VITE_ADMOB_REWARDED_ID"] as string) || "ca-app-pub-3940256099942544/5224354917",
   // Keep test ads until the new units are live, then set VITE_ADMOB_LIVE=true.
-  testing: import.meta.env.VITE_ADMOB_LIVE !== "true",
+  testing: import.meta.env["VITE_ADMOB_LIVE"] !== "true",
 };
 
 export const INTERSTITIAL_EVERY = 10;

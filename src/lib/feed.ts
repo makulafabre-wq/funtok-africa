@@ -56,7 +56,7 @@ export function injectAds(videos: FeedVideo[], ads: HouseAd[], every: number, en
   videos.forEach((v, i) => {
     out.push({ kind: "video", video: v });
     if (enabled && every > 0 && (i + 1) % every === 0) {
-      out.push({ kind: "ad", ad: ads.length ? ads[(i / every) % ads.length | 0] : null, key: `ad-${i}` });
+      out.push({ kind: "ad", ad: ads.length ? ads[(i / every) % ads.length | 0] ?? null : null, key: `ad-${i}` });
     }
   });
   return out;
