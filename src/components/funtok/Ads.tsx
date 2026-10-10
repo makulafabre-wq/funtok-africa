@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ExternalLink, X } from "lucide-react";
 import { fetchAdSetup, trackAd, type HouseAd } from "@/lib/feed";
@@ -68,11 +68,14 @@ export function HouseAdOverlay({ seconds, title, onDone, onClose }: { seconds: n
   const [left, setLeft] = useState(seconds);
   const ad = data?.ads[0];
   useEffect(() => { if (ad) trackAd(ad.id, "impression"); }, [ad]);
+  const doneRef = useRef(onDone);
+  doneRef.current = onDone;
+  const fired = useRef(false);
   useEffect(() => {
-    if (left <= 0) { onDone(); return; }
+    if (left <= 0) { if (!fired.current) { fired.current = true; doneRef.current(); } return; }
     const t = setTimeout(() => setLeft((n) => n - 1), 1000);
     return () => clearTimeout(t);
-  }, [left, onDone]);
+  }, [left]);
   return (
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 bg-background p-6 text-center">
       <span className="rounded bg-secondary px-2 py-0.5 text-xs text-muted-foreground">{title}</span>
