@@ -14,6 +14,63 @@ export type Database = {
   }
   public: {
     Tables: {
+      ad_config: {
+        Row: {
+          ads_enabled: boolean
+          feed_ad_frequency: number
+          id: number
+        }
+        Insert: {
+          ads_enabled?: boolean
+          feed_ad_frequency?: number
+          id?: number
+        }
+        Update: {
+          ads_enabled?: boolean
+          feed_ad_frequency?: number
+          id?: number
+        }
+        Relationships: []
+      }
+      ads: {
+        Row: {
+          clicks: number
+          created_at: string
+          cta_link: string | null
+          cta_text: string
+          id: string
+          image_url: string | null
+          impressions: number
+          is_active: boolean
+          title: string
+          video_bunny_id: string | null
+        }
+        Insert: {
+          clicks?: number
+          created_at?: string
+          cta_link?: string | null
+          cta_text?: string
+          id?: string
+          image_url?: string | null
+          impressions?: number
+          is_active?: boolean
+          title: string
+          video_bunny_id?: string | null
+        }
+        Update: {
+          clicks?: number
+          created_at?: string
+          cta_link?: string | null
+          cta_text?: string
+          id?: string
+          image_url?: string | null
+          impressions?: number
+          is_active?: boolean
+          title?: string
+          video_bunny_id?: string | null
+        }
+        Relationships: []
+      }
       comments: {
         Row: {
           created_at: string
@@ -191,6 +248,7 @@ export type Database = {
           allow_comments: boolean
           allow_duet: boolean
           avg_watch_percent: number
+          boost_until: string | null
           bunny_cdn_url: string
           bunny_video_id: string
           caption: string
@@ -215,6 +273,7 @@ export type Database = {
           allow_comments?: boolean
           allow_duet?: boolean
           avg_watch_percent?: number
+          boost_until?: string | null
           bunny_cdn_url: string
           bunny_video_id: string
           caption?: string
@@ -239,6 +298,7 @@ export type Database = {
           allow_comments?: boolean
           allow_duet?: boolean
           avg_watch_percent?: number
+          boost_until?: string | null
           bunny_cdn_url?: string
           bunny_video_id?: string
           caption?: string
@@ -274,6 +334,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      boost_video: { Args: { _video_id: string }; Returns: undefined }
       recalc_all_trending: { Args: never; Returns: undefined }
       recalc_trending: { Args: { _video_id: string }; Returns: undefined }
       record_share: { Args: { _video_id: string }; Returns: undefined }
@@ -285,6 +346,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      track_ad: { Args: { _ad_id: string; _kind: string }; Returns: undefined }
     }
     Enums: {
       [_ in never]: never
