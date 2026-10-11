@@ -121,6 +121,11 @@ function isTyping(c: Conversation, who: string) {
   return !!t && Date.now() - t.toMillis() < 6000;
 }
 
+function isOnline(c: Conversation, who: string) {
+  const t = c.typing?.[who];
+  return !!t && Date.now() - t.toMillis() < 5 * 60 * 1000;
+}
+
 function Notice({ title, body, cta }: { title: string; body: string; cta?: React.ReactNode }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-3 px-8 text-center">
@@ -160,16 +165,17 @@ function ChatThread({ convo, me }: { convo: Conversation; me: string }) {
 
   return (
     <>
-      <div className="flex items-center gap-3 border-b border-border px-3 py-2.5">
-        <Link to="/chat" className="md:hidden" aria-label="Back"><ArrowLeft className="h-6 w-6" /></Link>
-        <Link to="/profile/$id" params={{ id: otherId }} className="flex flex-1 items-center gap-3">
-          <Avatar url={info?.avatarUrl} name={info?.displayName} size={40} />
-          <div>
-            <p className="font-semibold leading-tight">{info?.displayName}</p>
-            <p className="text-xs text-muted-foreground">{typing ? "typing…" : `@${info?.username ?? ""}`}</p>
+      <div className="flex items-center gap-2 border-b border-border px-2 py-2">
+        <Link to="/chat" className="rounded-full p-1.5 hover:bg-secondary md:hidden" aria-label="Back"><ArrowLeft className="h-6 w-6" /></Link>
+        <Link to="/profile/$id" params={{ id: otherId }} className="flex min-w-0 flex-1 items-center gap-3">
+          <Avatar url={info?.avatarUrl} name={info?.displayName} size={42} online={isOnline(convo, otherId)} />
+          <div className="min-w-0">
+            <p className="truncate font-semibold leading-tight">{info?.displayName}</p>
+            <p className={`text-xs ${typing ? "text-online" : "text-muted-foreground"}`}>{typing ? "typing…" : isOnline(convo, otherId) ? "online" : `@${info?.username ?? ""}`}</p>
           </div>
         </Link>
-        <button aria-label="Video call" className="rounded-full bg-secondary p-2.5"><Video className="h-5 w-5" /></button>
+        <button aria-label="Video call" className="rounded-full p-2.5 hover:bg-secondary"><Video className="h-5 w-5" /></button>
+        <button aria-label="Voice call" className="rounded-full p-2.5 hover:bg-secondary"><Phone className="h-5 w-5" /></button>
       </div>
       <div className="flex-1 space-y-2 overflow-y-auto px-3 py-4">
         {messages.map((m) => <Bubble key={m.id} m={m} mine={m.senderId === me} />)}
