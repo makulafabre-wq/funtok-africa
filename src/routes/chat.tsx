@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, Search, Send, Video, Play } from "lucide-react";
+import { ArrowLeft, Search, Send, Video, Play, MoreVertical, Phone } from "lucide-react";
 import { useAuth, useConversations, toPerson } from "@/hooks/use-auth";
 import { useHorizontalSwipe } from "@/hooks/use-swipe";
 import { supabase } from "@/integrations/supabase/client";
@@ -58,7 +58,10 @@ function ChatSide() {
       <header className={`${other ? "hidden md:flex" : "flex"} items-center justify-between px-4 pt-3`}>
         <Logo size="sm" />
         <SideToggle active="chat" />
-        <span className="w-16" />
+        <div className="flex items-center gap-1">
+          <button aria-label="Search" className="rounded-full p-2 hover:bg-secondary"><Search className="h-5 w-5" /></button>
+          <button aria-label="More" className="rounded-full p-2 hover:bg-secondary"><MoreVertical className="h-5 w-5" /></button>
+        </div>
       </header>
 
       {!ready ? null : !user ? (
@@ -68,8 +71,8 @@ function ChatSide() {
       ) : (
         <div className="flex min-h-0 flex-1">
           <aside className={`${other ? "hidden md:flex" : "flex"} w-full flex-col border-r border-border md:w-[30%] md:min-w-72`}>
-            <div className="p-3">
-              <label className="flex items-center gap-2 rounded-xl bg-secondary px-3 py-2.5">
+            <div className="px-4 pb-2 pt-1">
+              <label className="flex items-center gap-2 rounded-full bg-secondary px-4 py-2.5">
                 <Search className="h-4 w-4 text-muted-foreground" />
                 <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search chats..." className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground" />
               </label>
@@ -80,16 +83,21 @@ function ChatSide() {
                 const o = c.participants.find((p) => p !== user.id) ?? user.id;
                 const info = c.participantInfo?.[o];
                 const unread = c.unread?.[user.id] ?? 0;
+                const online = isOnline(c, o);
                 return (
-                  <Link key={c.id} to="/chat" search={{ user: o }} className={`flex items-center gap-3 px-4 py-3 hover:bg-secondary ${c.id === activeId ? "bg-secondary" : ""}`}>
-                    <Avatar url={info?.avatarUrl} name={info?.displayName} size={52} />
+                  <Link key={c.id} to="/chat" search={{ user: o }} className={`flex items-center gap-3 px-4 py-3 transition-colors hover:bg-secondary/60 ${c.id === activeId ? "bg-secondary" : ""}`}>
+                    <Avatar url={info?.avatarUrl} name={info?.displayName} size={54} online={online} />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate font-semibold">{info?.displayName ?? "Chat"}</p>
-                      <p className={`truncate text-sm ${unread ? "text-foreground" : "text-muted-foreground"}`}>{isTyping(c, o) ? "typing…" : c.lastMessage || "Say hi 👋"}</p>
-                    </div>
-                    <div className="flex flex-col items-end gap-1">
-                      <span className="text-xs text-muted-foreground">{formatChatTime(c.lastAt)}</span>
-                      {unread > 0 && <span className="rounded-md bg-accent px-1.5 text-xs font-bold text-accent-foreground">{unread}</span>}
+                      <div className="flex items-baseline justify-between gap-2">
+                        <p className="truncate font-semibold">{info?.displayName ?? "Chat"}</p>
+                        <span className={`shrink-0 text-xs ${unread ? "font-semibold text-accent" : "text-muted-foreground"}`}>{formatChatTime(c.lastAt)}</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className={`truncate text-sm ${unread ? "font-medium text-foreground" : "text-muted-foreground"}`}>
+                          {isTyping(c, o) ? <span className="text-online">typing…</span> : c.lastMessage || "Say hi 👋"}
+                        </p>
+                        {unread > 0 && <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-accent px-1.5 text-[11px] font-bold text-accent-foreground">{unread}</span>}
+                      </div>
                     </div>
                   </Link>
                 );
