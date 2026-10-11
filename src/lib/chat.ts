@@ -78,7 +78,7 @@ export function listenConversations(me: string, cb: (c: Conversation[]) => void)
 
 export function listenMessages(cid: string, cb: (m: Message[]) => void) {
   const q = query(collection(db(), "conversations", cid, "messages"), orderBy("createdAt", "asc"), limit(300));
-  return onSnapshot(q, (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Message, "id">) }))));
+  return onSnapshot(q, (snap) => cb(snap.docs.map((d: { id: string; data: () => unknown }) => ({ id: d.id, ...(d.data() as Omit<Message, "id">) }))));
 }
 
 export function formatChatTime(ts?: Timestamp) {
