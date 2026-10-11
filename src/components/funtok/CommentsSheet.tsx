@@ -25,7 +25,7 @@ export function CommentsSheet({ videoId, open, onOpenChange, allowComments }: { 
     if (!t) return;
     setText("");
     const { error } = await supabase.from("comments").insert({ video_id: videoId, user_id: user.id, text: t.slice(0, 500) });
-    if (error) return toast.error("Could not post comment");
+    if (error) { toast.error("Could not post comment"); return; }
     qc.invalidateQueries({ queryKey: ["comments", videoId] });
     qc.invalidateQueries({ queryKey: ["feed"] });
   };
