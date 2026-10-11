@@ -50,15 +50,15 @@ function FunSide() {
   const entries = injectAds(videos, ads.data?.ads ?? [], ads.data?.every ?? 5, (ads.data?.enabled ?? true) && tab !== "trending");
   const startIndex = v ? Math.max(0, entries.findIndex((e) => e.kind === "video" && e.video.id === v)) : 0;
 
-  const boost = async () => {
-    if (!user) return toast("Sign in to boost your video");
+  const boost = async (): Promise<void> => {
+    if (!user) { toast("Sign in to boost your video"); return; }
     const res = await showNativeRewarded().catch(() => null);
     if (res === null) setRewarding(true);
     else if (res) applyBoost();
   };
-  const applyBoost = async () => {
+  const applyBoost = async (): Promise<void> => {
     const { data } = await supabase.from("videos").select("id").eq("user_id", user!.id).order("created_at", { ascending: false }).limit(1).maybeSingle();
-    if (!data) return toast("Post a video first, then boost it");
+    if (!data) { toast("Post a video first, then boost it"); return; }
     const { error } = await supabase.rpc("boost_video", { _video_id: data.id });
     if (error) toast.error("Boost failed"); else toast.success("Your latest video is boosted x2 for 1 hour 🔥");
   };
