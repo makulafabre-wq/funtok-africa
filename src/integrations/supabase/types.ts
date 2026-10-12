@@ -110,59 +110,6 @@ export type Database = {
           },
         ]
       }
-      conversation_members: {
-        Row: {
-          conversation_id: string
-          last_read_at: string
-          typing_at: string | null
-          unread: number
-          user_id: string
-        }
-        Insert: {
-          conversation_id: string
-          last_read_at?: string
-          typing_at?: string | null
-          unread?: number
-          user_id: string
-        }
-        Update: {
-          conversation_id?: string
-          last_read_at?: string
-          typing_at?: string | null
-          unread?: number
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "conversation_members_conversation_id_fkey"
-            columns: ["conversation_id"]
-            isOneToOne: false
-            referencedRelation: "conversations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      conversations: {
-        Row: {
-          created_at: string
-          id: string
-          last_at: string
-          last_message: string
-        }
-        Insert: {
-          created_at?: string
-          id: string
-          last_at?: string
-          last_message?: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          last_at?: string
-          last_message?: string
-        }
-        Relationships: []
-      }
       follows: {
         Row: {
           created_at: string
@@ -203,50 +150,6 @@ export type Database = {
             columns: ["video_id"]
             isOneToOne: false
             referencedRelation: "videos"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      messages: {
-        Row: {
-          audio_url: string | null
-          conversation_id: string
-          created_at: string
-          id: string
-          image_url: string | null
-          sender_id: string
-          text: string
-          video_row_id: string | null
-          video_share_id: string | null
-        }
-        Insert: {
-          audio_url?: string | null
-          conversation_id: string
-          created_at?: string
-          id?: string
-          image_url?: string | null
-          sender_id: string
-          text?: string
-          video_row_id?: string | null
-          video_share_id?: string | null
-        }
-        Update: {
-          audio_url?: string | null
-          conversation_id?: string
-          created_at?: string
-          id?: string
-          image_url?: string | null
-          sender_id?: string
-          text?: string
-          video_row_id?: string | null
-          video_share_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "messages_conversation_id_fkey"
-            columns: ["conversation_id"]
-            isOneToOne: false
-            referencedRelation: "conversations"
             referencedColumns: ["id"]
           },
         ]
@@ -302,24 +205,6 @@ export type Database = {
           boost_hashtags?: string[]
           id?: number
           trending_enabled?: boolean
-        }
-        Relationships: []
-      }
-      user_phones: {
-        Row: {
-          created_at: string
-          phone: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          phone: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          phone?: string
-          user_id?: string
         }
         Relationships: []
       }
@@ -450,9 +335,6 @@ export type Database = {
     }
     Functions: {
       boost_video: { Args: { _video_id: string }; Returns: undefined }
-      find_user_by_phone: { Args: { _phone: string }; Returns: string }
-      is_member: { Args: { _cid: string }; Returns: boolean }
-      mark_read: { Args: { _cid: string }; Returns: undefined }
       recalc_all_trending: { Args: never; Returns: undefined }
       recalc_trending: { Args: { _video_id: string }; Returns: undefined }
       record_share: { Args: { _video_id: string }; Returns: undefined }
@@ -464,8 +346,6 @@ export type Database = {
         }
         Returns: undefined
       }
-      set_typing: { Args: { _cid: string; _on: boolean }; Returns: undefined }
-      start_conversation: { Args: { _other: string }; Returns: string }
       track_ad: { Args: { _ad_id: string; _kind: string }; Returns: undefined }
     }
     Enums: {
