@@ -62,7 +62,7 @@ export async function sendMessage(
 
 export async function uploadChatMedia(cid: string, me: string, file: Blob, ext: string): Promise<string> {
   const path = `${cid}/${me}/${Date.now()}.${ext}`;
-  const { error } = await supabase.storage.from("chat-media").upload(path, file, { contentType: file.type || undefined });
+  const { error } = await supabase.storage.from("chat-media").upload(path, file, file.type ? { contentType: file.type } : {});
   if (error) throw error;
   return path;
 }
