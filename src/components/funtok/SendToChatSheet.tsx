@@ -3,7 +3,6 @@ import { toast } from "sonner";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useAuth, useConversations } from "@/hooks/use-auth";
 import { sendMessage } from "@/lib/chat";
-import { firebaseReady } from "@/lib/firebase";
 import { Avatar } from "./Avatar";
 
 export function SendToChatSheet({ open, onOpenChange, bunnyVideoId, videoRowId }: { open: boolean; onOpenChange: (o: boolean) => void; bunnyVideoId: string; videoRowId: string }) {
@@ -16,8 +15,7 @@ export function SendToChatSheet({ open, onOpenChange, bunnyVideoId, videoRowId }
         <SheetHeader><SheetTitle>Send to Chat Side</SheetTitle></SheetHeader>
         <div className="mt-4 space-y-1 overflow-y-auto">
           {!user && <p className="text-sm text-muted-foreground"><Link to="/auth" className="text-primary">Sign in</Link> to send videos.</p>}
-          {user && !firebaseReady && <p className="text-sm text-muted-foreground">Chat isn't connected yet.</p>}
-          {user && firebaseReady && conversations.length === 0 && <p className="text-sm text-muted-foreground">No chats yet — open someone's profile and tap Message.</p>}
+          {user && conversations.length === 0 && <p className="text-sm text-muted-foreground">No chats yet — open someone's profile and tap Message.</p>}
           {user && conversations.map((c) => {
             const other = c.participants.find((p) => p !== user.id) ?? user.id;
             const info = c.participantInfo?.[other];
