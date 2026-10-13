@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, Search, Send, Video, Play, MoreVertical, Phone } from "lucide-react";
+import { ArrowLeft, Search, Send, Video, Play, MoreVertical, Phone, UserPlus } from "lucide-react";
+import { toast } from "sonner";
 import { useAuth, useConversations, toPerson } from "@/hooks/use-auth";
 import { useHorizontalSwipe } from "@/hooks/use-swipe";
 import { supabase } from "@/integrations/supabase/client";
-import { firebaseReady } from "@/lib/firebase";
 import {
-  conversationId, ensureConversation, formatChatTime, listenMessages, markRead, sendMessage, setTyping,
+  conversationId, ensureConversation, tsMillis, getMyPhone, saveMyPhone, addContact, formatChatTime, listenMessages, markRead, sendMessage, setTyping,
   type Conversation, type Message,
 } from "@/lib/chat";
 import { playlistUrl, thumbUrl } from "@/lib/bunny";
@@ -36,11 +36,14 @@ function ChatSide() {
   const { user, ready, profile } = useAuth();
   const { conversations } = useConversations(user?.id);
   const [search, setSearch] = useState("");
+  const [myPhone, setMyPhone] = useState<string | null | undefined>(undefined);
+  const [adding, setAdding] = useState(false);
+  useEffect(() => { if (user) getMyPhone(user.id).then(setMyPhone); }, [user]);
   const swipe = useHorizontalSwipe(undefined, () => { if (!other) navigate({ to: "/" }); });
 
   // Open/create a conversation with ?user=
   useEffect(() => {
-    if (!user || !profile || !other || other === user.id || !firebaseReady) return;
+    if (!user || !profile || !other || other === user.id) return;
     supabase.from("profiles").select("*").eq("id", other).maybeSingle().then(({ data }) => {
       if (data) ensureConversation(user.id, toPerson(profile), other, toPerson(data)).catch(console.error);
     });
@@ -66,8 +69,8 @@ function ChatSide() {
 
       {!ready ? null : !user ? (
         <Notice title="Sign in to chat" body="Your Chat Side conversations live here." cta={<Link to="/auth" className="rounded-lg bg-primary px-6 py-3 font-semibold text-primary-foreground">Sign in</Link>} />
-      ) : !firebaseReady ? (
-        <Notice title="Chat is almost ready" body="The chat service still needs its connection details. Once they're added, conversations appear here in real time." />
+      ) : myPhone === undefined ? null : !myPhone ? (
+        <PhoneSetup me={user.id} onDone={setMyPhone} />
       ) : (
         <div className="flex min-h-0 flex-1">
           <aside className={`${other ? "hidden md:flex" : "flex"} w-full flex-col border-r border-border md:w-[30%] md:min-w-72`}>
@@ -77,8 +80,12 @@ function ChatSide() {
                 <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search chats..." className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground" />
               </label>
             </div>
+            <button onClick={() => setAdding(true)} className="mx-4 mb-2 flex items-center gap-3 rounded-xl bg-primary/15 px-4 py-3 text-left font-semibold text-primary">
+              <UserPlus className="h-5 w-5" /> Add chat
+            </button>
+            {adding && <AddChat me={user.id} onClose={() => setAdding(false)} onAdded={(uid) => { setAdding(false); navigate({ to: "/chat", search: { user: uid } }); }} />}
             <div className="flex-1 overflow-y-auto">
-              {filtered.length === 0 && <p className="px-6 pt-10 text-center text-sm text-muted-foreground">No chats yet. Open a creator's profile and tap Message.</p>}
+              {filtered.length === 0 && <p className="px-6 pt-10 text-center text-sm text-muted-foreground">No chats yet. Tap "Add chat" and enter a friend's number.</p>}
               {filtered.map((c) => {
                 const o = c.participants.find((p) => p !== user.id) ?? user.id;
                 const info = c.participantInfo?.[o];
@@ -118,12 +125,48 @@ function ChatSide() {
 
 function isTyping(c: Conversation, who: string) {
   const t = c.typing?.[who];
-  return !!t && Date.now() - t.toMillis() < 6000;
+  return !!t && Date.now() - tsMillis(t) < 6000;
 }
 
 function isOnline(c: Conversation, who: string) {
   const t = c.typing?.[who];
-  return !!t && Date.now() - t.toMillis() < 5 * 60 * 1000;
+  return !!t && Date.now() - tsMillis(t) < 5 * 60 * 1000;
+}
+
+function PhoneSetup({ me, onDone }: { me: string; onDone: (p: string) => void }) {
+  const [phone, setPhone] = useState("+256");
+  const [busy, setBusy] = useState(false);
+  return (
+    <form onSubmit={async (e) => { e.preventDefault(); setBusy(true);
+      try { await saveMyPhone(me, phone); onDone(phone); toast.success("Number saved — you're ready to chat"); }
+      catch (err) { toast.error((err as Error).message); } finally { setBusy(false); } }}
+      className="flex flex-1 flex-col items-center justify-center gap-4 px-8 text-center">
+      <p className="font-display text-2xl font-bold">Save your number</p>
+      <p className="text-sm text-muted-foreground">Friends add you on Funtok Chat using your phone number.</p>
+      <input value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="tel" placeholder="+256 7XX XXX XXX" className="w-full max-w-xs rounded-xl bg-secondary px-4 py-3 text-center text-lg outline-none" />
+      <button disabled={busy} className="w-full max-w-xs rounded-xl bg-primary py-3 font-semibold text-primary-foreground disabled:opacity-60">{busy ? "Saving…" : "Save & continue"}</button>
+    </form>
+  );
+}
+
+function AddChat({ me, onClose, onAdded }: { me: string; onClose: () => void; onAdded: (uid: string) => void }) {
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("+256");
+  const [busy, setBusy] = useState(false);
+  return (
+    <form onSubmit={async (e) => { e.preventDefault(); setBusy(true);
+      try { const uid = await addContact(me, name, phone); toast.success(`${name} added`); onAdded(uid); }
+      catch (err) { toast.error((err as Error).message); } finally { setBusy(false); } }}
+      className="mx-4 mb-3 space-y-2 rounded-xl border border-border bg-card p-3">
+      <p className="font-semibold">New contact</p>
+      <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" className="w-full rounded-lg bg-secondary px-3 py-2.5 text-sm outline-none" />
+      <input value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="tel" placeholder="Phone number" className="w-full rounded-lg bg-secondary px-3 py-2.5 text-sm outline-none" />
+      <div className="flex gap-2">
+        <button type="button" onClick={onClose} className="flex-1 rounded-lg bg-secondary py-2.5 text-sm">Cancel</button>
+        <button disabled={busy} className="flex-1 rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-60">{busy ? "Adding…" : "Add & chat"}</button>
+      </div>
+    </form>
+  );
 }
 
 function Notice({ title, body, cta }: { title: string; body: string; cta?: React.ReactNode }) {
