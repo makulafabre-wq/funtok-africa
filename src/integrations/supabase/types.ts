@@ -110,6 +110,33 @@ export type Database = {
           },
         ]
       }
+      contacts: {
+        Row: {
+          contact_user_id: string
+          created_at: string
+          id: string
+          name: string
+          owner_id: string
+          phone: string
+        }
+        Insert: {
+          contact_user_id: string
+          created_at?: string
+          id?: string
+          name: string
+          owner_id: string
+          phone: string
+        }
+        Update: {
+          contact_user_id?: string
+          created_at?: string
+          id?: string
+          name?: string
+          owner_id?: string
+          phone?: string
+        }
+        Relationships: []
+      }
       conversation_members: {
         Row: {
           conversation_id: string
