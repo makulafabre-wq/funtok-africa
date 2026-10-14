@@ -16,6 +16,10 @@ export type Message = {
   text?: string;
   videoShareId?: string | null;
   videoRowId?: string | null;
+  imageUrl?: string | null;
+  audioUrl?: string | null;
+  fileUrl?: string | null;
+  fileName?: string | null;
   createdAt?: string;
 };
 export type Contact = { id: string; contact_user_id: string; name: string; phone: string };
@@ -64,10 +68,11 @@ export async function ensureConversation(_me: string, _meInfo: PersonInfo, other
   return data as string;
 }
 
-export async function sendMessage(convo: Conversation, senderId: string, payload: { text?: string; videoShareId?: string; videoRowId?: string }) {
+export async function sendMessage(convo: Conversation, senderId: string, payload: { text?: string; videoShareId?: string; videoRowId?: string; imageUrl?: string; audioUrl?: string; fileUrl?: string; fileName?: string }) {
   const { error } = await supabase.from("messages").insert({
     conversation_id: convo.id, sender_id: senderId, text: payload.text ?? "",
     video_share_id: payload.videoShareId ?? null, video_row_id: payload.videoRowId ?? null,
+    image_url: payload.imageUrl ?? null, audio_url: payload.audioUrl ?? null, file_url: payload.fileUrl ?? null, file_name: payload.fileName ?? null,
   });
   if (error) throw error;
 }
@@ -124,7 +129,7 @@ export function listenMessages(cid: string, cb: (m: Message[]) => void) {
   let alive = true;
   const refresh = async () => {
     const { data } = await supabase.from("messages").select("*").eq("conversation_id", cid).order("created_at").limit(300);
-    if (alive) cb((data ?? []).map((m) => ({ id: m.id, senderId: m.sender_id, text: m.text, videoShareId: m.video_share_id, videoRowId: m.video_row_id, createdAt: m.created_at })));
+    if (alive) cb((data ?? []).map((m) => ({ id: m.id, senderId: m.sender_id, text: m.text, videoShareId: m.video_share_id, videoRowId: m.video_row_id, imageUrl: m.image_url, audioUrl: m.audio_url, fileUrl: m.file_url, fileName: m.file_name, createdAt: m.created_at })));
   };
   refresh();
   const ch = supabase.channel(`msgs-${cid}-${Math.random()}`)
@@ -144,4 +149,22 @@ export function formatChatTime(ts?: string) {
   if (diff < 2) return "Yesterday";
   if (diff < 7) return d.toLocaleDateString([], { weekday: "long" });
   return d.toLocaleDateString();
+}
+
+export async function uploadChatFile(cid: string, me: string, file: Blob, name: string) {
+  const safe = name.replace(/[^\w.-]+/g, "_").slice(-80);
+  const path = `${cid}/${me}/${Date.now()}_${safe}`;
+  const { error } = await supabase.storage.from("chat-media").upload(path, file, file.type ? { contentType: file.type } : {});
+  if (error) throw error;
+  return path;
+}
+
+const signed = new Map<string, string>();
+export async function chatFileUrl(path: string) {
+  if (/^https?:/.test(path)) return path;
+  const hit = signed.get(path);
+  if (hit) return hit;
+  const { data } = await supabase.storage.from("chat-media").createSignedUrl(path, 3600);
+  if (data?.signedUrl) signed.set(path, data.signedUrl);
+  return data?.signedUrl ?? "";
 }

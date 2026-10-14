@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, Search, Send, Video, Play, MoreVertical, Phone, UserPlus } from "lucide-react";
+import { ArrowLeft, Search, Video, Play, MoreVertical, Phone, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth, useConversations, toPerson } from "@/hooks/use-auth";
 import { useHorizontalSwipe } from "@/hooks/use-swipe";
@@ -15,6 +15,7 @@ import { BottomNav } from "@/components/funtok/BottomNav";
 import { SideToggle } from "@/components/funtok/SideToggle";
 import { Logo } from "@/components/funtok/Logo";
 import { BannerAd } from "@/components/funtok/Ads";
+import { ChatComposer, MediaContent } from "@/components/funtok/ChatComposer";
 import { VideoPlayer } from "@/components/funtok/VideoPlayer";
 import { ChatMainMenu, ThreadMenu, usePref, textSizeClass } from "@/components/funtok/ChatMenus";
 
@@ -186,7 +187,6 @@ function ChatThread({ convo, me }: { convo: Conversation; me: string }) {
   const [receipts] = usePref("readReceipts", true);
   const [showOnline] = usePref("showOnline", true);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [text, setText] = useState("");
   const bottom = useRef<HTMLDivElement>(null);
   const typingTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const otherId = convo.participants.find((p) => p !== me) ?? me;
@@ -195,15 +195,7 @@ function ChatThread({ convo, me }: { convo: Conversation; me: string }) {
   useEffect(() => listenMessages(convo.id, setMessages), [convo.id]);
   useEffect(() => { if (receipts) markRead(convo.id, me); bottom.current?.scrollIntoView({ behavior: "smooth" }); }, [messages.length, convo.id, me, receipts]);
 
-  const send = async () => {
-    const t = text.trim();
-    if (!t) return;
-    setText("");
-    await sendMessage(convo, me, { text: t.slice(0, 2000) });
-  };
-
-  const onType = (v: string) => {
-    setText(v);
+  const onType = (_v: string) => {
     if (!showOnline) return;
     setTyping(convo.id, me, true);
     clearTimeout(typingTimer.current);
@@ -232,10 +224,7 @@ function ChatThread({ convo, me }: { convo: Conversation; me: string }) {
         {typing && <div className="w-16 rounded-2xl bg-bubble-them px-3 py-2 text-center text-muted-foreground">•••</div>}
         <div ref={bottom} />
       </div>
-      <form onSubmit={(e) => { e.preventDefault(); send(); }} className="flex gap-2 border-t border-border p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-        <input value={text} onChange={(e) => onType(e.target.value)} placeholder="Message…" className="flex-1 rounded-full bg-secondary px-4 py-2.5 text-sm outline-none placeholder:text-muted-foreground" />
-        <button className="rounded-full bg-primary p-3 text-primary-foreground" aria-label="Send"><Send className="h-4 w-4" /></button>
-      </form>
+      <ChatComposer cid={convo.id} me={me} onSend={(p) => sendMessage(convo, me, p)} onType={onType} />
     </>
   );
 }
@@ -260,6 +249,7 @@ function Bubble({ m, mine, size }: { m: Message; mine: boolean; size: string }) 
             )}
           </div>
         )}
+        <MediaContent imageUrl={m.imageUrl} audioUrl={m.audioUrl} fileUrl={m.fileUrl} fileName={m.fileName} />
         {m.text && <p className={`whitespace-pre-wrap break-words px-3 py-2 ${textSizeClass(size)}`}>{m.text}</p>}
         <p className={`px-3 pb-1 text-right text-[10px] ${mine ? "text-primary-foreground/70" : "text-muted-foreground"}`}>{formatChatTime(m.createdAt)}</p>
       </div>
