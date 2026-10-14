@@ -126,7 +126,7 @@ function useSigned(path?: string | null) {
   return url;
 }
 
-export function MediaContent({ imageUrl, audioUrl, fileUrl, fileName }: { imageUrl?: string | null; audioUrl?: string | null; fileUrl?: string | null; fileName?: string | null }) {
+export function MediaContent({ imageUrl, audioUrl, fileUrl, fileName }: { imageUrl?: string | null | undefined; audioUrl?: string | null | undefined; fileUrl?: string | null | undefined; fileName?: string | null | undefined }) {
   const img = useSigned(imageUrl);
   const aud = useSigned(audioUrl);
   const file = useSigned(fileUrl);
