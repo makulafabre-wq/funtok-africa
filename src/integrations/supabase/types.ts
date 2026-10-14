@@ -239,6 +239,8 @@ export type Database = {
           audio_url: string | null
           conversation_id: string
           created_at: string
+          file_name: string | null
+          file_url: string | null
           id: string
           image_url: string | null
           sender_id: string
@@ -250,6 +252,8 @@ export type Database = {
           audio_url?: string | null
           conversation_id: string
           created_at?: string
+          file_name?: string | null
+          file_url?: string | null
           id?: string
           image_url?: string | null
           sender_id: string
@@ -261,6 +265,8 @@ export type Database = {
           audio_url?: string | null
           conversation_id?: string
           created_at?: string
+          file_name?: string | null
+          file_url?: string | null
           id?: string
           image_url?: string | null
           sender_id?: string
