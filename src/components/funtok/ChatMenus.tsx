@@ -162,7 +162,7 @@ function SettingsSheet({ me, open, onOpenChange }: { me: string; open: boolean; 
   );
 }
 
-export function ThreadMenu({ me, otherId, name, onChanged }: { me: string; otherId: string; name?: string; onChanged: () => void }) {
+export function ThreadMenu({ me, otherId, name, onChanged }: { me: string; otherId: string; name?: string | undefined; onChanged: () => void }) {
   const navigate = useNavigate();
   const [muted, setMuted] = usePref<string[]>("muted", []);
   const isMuted = muted.includes(otherId);
