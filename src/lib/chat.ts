@@ -73,6 +73,7 @@ export async function sendMessage(convo: Conversation, senderId: string, payload
     conversation_id: convo.id, sender_id: senderId, text: payload.text ?? "",
     video_share_id: payload.videoShareId ?? null, video_row_id: payload.videoRowId ?? null,
     image_url: payload.imageUrl ?? null, audio_url: payload.audioUrl ?? null, file_url: payload.fileUrl ?? null, file_name: payload.fileName ?? null,
+    image_url: payload.imageUrl ?? null, audio_url: payload.audioUrl ?? null, file_url: payload.fileUrl ?? null, file_name: payload.fileName ?? null,
   });
   if (error) throw error;
 }
