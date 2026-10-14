@@ -16,6 +16,7 @@ import { SideToggle } from "@/components/funtok/SideToggle";
 import { Logo } from "@/components/funtok/Logo";
 import { BannerAd } from "@/components/funtok/Ads";
 import { VideoPlayer } from "@/components/funtok/VideoPlayer";
+import { ChatMainMenu, ThreadMenu, usePref, textSizeClass } from "@/components/funtok/ChatMenus";
 
 export const Route = createFileRoute("/chat")({
   validateSearch: (s: Record<string, unknown>): { user?: string | undefined } => ({ user: typeof s["user"] === "string" ? s["user"] : undefined }),
@@ -38,6 +39,7 @@ function ChatSide() {
   const [search, setSearch] = useState("");
   const [myPhone, setMyPhone] = useState<string | null | undefined>(undefined);
   const [adding, setAdding] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
   useEffect(() => { if (user) getMyPhone(user.id).then(setMyPhone); }, [user]);
   const swipe = useHorizontalSwipe(undefined, () => { if (!other) navigate({ to: "/" }); });
 
@@ -62,8 +64,8 @@ function ChatSide() {
         <Logo size="sm" />
         <SideToggle active="chat" />
         <div className="flex items-center gap-1">
-          <button aria-label="Search" className="rounded-full p-2 hover:bg-secondary"><Search className="h-5 w-5" /></button>
-          <button aria-label="More" className="rounded-full p-2 hover:bg-secondary"><MoreVertical className="h-5 w-5" /></button>
+          <button aria-label="Search" onClick={() => setShowSearch((v) => !v)} className="rounded-full p-2 hover:bg-secondary"><Search className="h-5 w-5" /></button>
+          {user ? <ChatMainMenu me={user.id} onNewChat={() => setAdding(true)} /> : <MoreVertical className="h-5 w-5 opacity-40" />}
         </div>
       </header>
 
@@ -74,12 +76,12 @@ function ChatSide() {
       ) : (
         <div className="flex min-h-0 flex-1">
           <aside className={`${other ? "hidden md:flex" : "flex"} w-full flex-col border-r border-border md:w-[30%] md:min-w-72`}>
-            <div className="px-4 pb-2 pt-1">
+            {showSearch && <div className="px-4 pb-2 pt-1">
               <label className="flex items-center gap-2 rounded-full bg-secondary px-4 py-2.5">
                 <Search className="h-4 w-4 text-muted-foreground" />
-                <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search chats..." className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground" />
+                <input value={search} onChange={(e) => setSearch(e.target.value)} autoFocus placeholder="Search chats..." className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground" />
               </label>
-            </div>
+            </div>}
             <button onClick={() => setAdding(true)} className="mx-4 mb-2 flex items-center gap-3 rounded-xl bg-primary/15 px-4 py-3 text-left font-semibold text-primary">
               <UserPlus className="h-5 w-5" /> Add chat
             </button>
@@ -180,6 +182,9 @@ function Notice({ title, body, cta }: { title: string; body: string; cta?: React
 }
 
 function ChatThread({ convo, me }: { convo: Conversation; me: string }) {
+  const [size] = usePref("textSize", "medium");
+  const [receipts] = usePref("readReceipts", true);
+  const [showOnline] = usePref("showOnline", true);
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState("");
   const bottom = useRef<HTMLDivElement>(null);
@@ -188,7 +193,7 @@ function ChatThread({ convo, me }: { convo: Conversation; me: string }) {
   const info = convo.participantInfo?.[otherId];
 
   useEffect(() => listenMessages(convo.id, setMessages), [convo.id]);
-  useEffect(() => { markRead(convo.id, me); bottom.current?.scrollIntoView({ behavior: "smooth" }); }, [messages.length, convo.id, me]);
+  useEffect(() => { if (receipts) markRead(convo.id, me); bottom.current?.scrollIntoView({ behavior: "smooth" }); }, [messages.length, convo.id, me, receipts]);
 
   const send = async () => {
     const t = text.trim();
@@ -199,6 +204,7 @@ function ChatThread({ convo, me }: { convo: Conversation; me: string }) {
 
   const onType = (v: string) => {
     setText(v);
+    if (!showOnline) return;
     setTyping(convo.id, me, true);
     clearTimeout(typingTimer.current);
     typingTimer.current = setTimeout(() => setTyping(convo.id, me, false), 4000);
@@ -217,11 +223,12 @@ function ChatThread({ convo, me }: { convo: Conversation; me: string }) {
             <p className={`text-xs ${typing ? "text-online" : "text-muted-foreground"}`}>{typing ? "typing…" : isOnline(convo, otherId) ? "online" : `@${info?.username ?? ""}`}</p>
           </div>
         </Link>
-        <button aria-label="Video call" className="rounded-full p-2.5 hover:bg-secondary"><Video className="h-5 w-5" /></button>
-        <button aria-label="Voice call" className="rounded-full p-2.5 hover:bg-secondary"><Phone className="h-5 w-5" /></button>
+        <button aria-label="Video call" onClick={() => toast("Video calls coming soon")} className="rounded-full p-2.5 hover:bg-secondary"><Video className="h-5 w-5" /></button>
+        <button aria-label="Voice call" onClick={() => toast("Voice calls coming soon")} className="rounded-full p-2.5 hover:bg-secondary"><Phone className="h-5 w-5" /></button>
+        <ThreadMenu me={me} otherId={otherId} name={info?.displayName} onChanged={() => {}} />
       </div>
       <div className="flex-1 space-y-2 overflow-y-auto px-3 py-4">
-        {messages.map((m) => <Bubble key={m.id} m={m} mine={m.senderId === me} />)}
+        {messages.map((m) => <Bubble key={m.id} m={m} mine={m.senderId === me} size={size} />)}
         {typing && <div className="w-16 rounded-2xl bg-bubble-them px-3 py-2 text-center text-muted-foreground">•••</div>}
         <div ref={bottom} />
       </div>
@@ -233,7 +240,7 @@ function ChatThread({ convo, me }: { convo: Conversation; me: string }) {
   );
 }
 
-function Bubble({ m, mine }: { m: Message; mine: boolean }) {
+function Bubble({ m, mine, size }: { m: Message; mine: boolean; size: string }) {
   const [playing, setPlaying] = useState(false);
   return (
     <div className={`flex ${mine ? "justify-end" : "justify-start"}`}>
@@ -253,7 +260,7 @@ function Bubble({ m, mine }: { m: Message; mine: boolean }) {
             )}
           </div>
         )}
-        {m.text && <p className="whitespace-pre-wrap break-words px-3 py-2 text-sm">{m.text}</p>}
+        {m.text && <p className={`whitespace-pre-wrap break-words px-3 py-2 ${textSizeClass(size)}`}>{m.text}</p>}
         <p className={`px-3 pb-1 text-right text-[10px] ${mine ? "text-primary-foreground/70" : "text-muted-foreground"}`}>{formatChatTime(m.createdAt)}</p>
       </div>
     </div>
