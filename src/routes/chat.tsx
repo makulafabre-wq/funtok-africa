@@ -221,7 +221,7 @@ function ChatThread({ convo, me }: { convo: Conversation; me: string }) {
         <ThreadMenu me={me} otherId={otherId} name={info?.displayName} onChanged={() => {}} />
       </div>
       <div className="flex-1 space-y-2 overflow-y-auto px-3 py-4">
-        {messages.map((m) => <Bubble key={m.id} m={m} mine={m.senderId === me} size={size} />)}
+        {messages.map((m) => <Bubble key={m.id} m={m} mine={m.senderId === me} size={size} otherReadAt={convo.readAt?.[otherId]} />)}
         {typing && <div className="w-16 rounded-2xl bg-bubble-them px-3 py-2 text-center text-muted-foreground">•••</div>}
         <div ref={bottom} />
       </div>
@@ -230,7 +230,8 @@ function ChatThread({ convo, me }: { convo: Conversation; me: string }) {
   );
 }
 
-function Bubble({ m, mine, size }: { m: Message; mine: boolean; size: string }) {
+function Bubble({ m, mine, size, otherReadAt }: { m: Message; mine: boolean; size: string; otherReadAt?: string | null }) {
+  const read = mine && !!otherReadAt && tsMillis(otherReadAt) >= tsMillis(m.createdAt);
   const [playing, setPlaying] = useState(false);
   return (
     <div className={`flex ${mine ? "justify-end" : "justify-start"}`}>
