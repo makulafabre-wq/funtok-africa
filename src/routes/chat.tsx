@@ -230,7 +230,7 @@ function ChatThread({ convo, me }: { convo: Conversation; me: string }) {
   );
 }
 
-function Bubble({ m, mine, size, otherReadAt }: { m: Message; mine: boolean; size: string; otherReadAt?: string | null }) {
+function Bubble({ m, mine, size, otherReadAt }: { m: Message; mine: boolean; size: string; otherReadAt?: string | null | undefined }) {
   const read = mine && !!otherReadAt && tsMillis(otherReadAt) >= tsMillis(m.createdAt);
   const [playing, setPlaying] = useState(false);
   return (
