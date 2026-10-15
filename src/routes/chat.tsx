@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, Search, Video, Play, MoreVertical, Phone, UserPlus } from "lucide-react";
+import { ArrowLeft, Search, Video, Play, MoreVertical, Phone, UserPlus, Check, CheckCheck } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth, useConversations, toPerson } from "@/hooks/use-auth";
 import { useHorizontalSwipe } from "@/hooks/use-swipe";
@@ -193,7 +193,8 @@ function ChatThread({ convo, me }: { convo: Conversation; me: string }) {
   const info = convo.participantInfo?.[otherId];
 
   useEffect(() => listenMessages(convo.id, setMessages), [convo.id]);
-  useEffect(() => { if (receipts) markRead(convo.id, me); bottom.current?.scrollIntoView({ behavior: "smooth" }); }, [messages.length, convo.id, me, receipts]);
+  // Always mark as read when viewing so the unread badge clears immediately
+  useEffect(() => { markRead(convo.id, me); bottom.current?.scrollIntoView({ behavior: "smooth" }); }, [messages.length, convo.id, me]);
 
   const onType = (_v: string) => {
     if (!showOnline) return;
