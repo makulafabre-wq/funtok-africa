@@ -27,6 +27,16 @@ export const toPerson = (p: { username: string; display_name: string | null; ava
 export function useConversations(me: string | undefined) {
   const [list, setList] = useState<Conversation[]>([]);
   useEffect(() => { if (!me) return; return listenConversations(me, setList); }, [me]);
+  // Clear the badge instantly when a chat is opened, before the server confirms
+  useEffect(() => {
+    if (!me) return;
+    const onRead = (e: Event) => {
+      const cid = (e as CustomEvent<string>).detail;
+      setList((l) => l.map((c) => (c.id === cid ? { ...c, unread: { ...(c.unread ?? {}), [me]: 0 } } : c)));
+    };
+    window.addEventListener("funtok-read", onRead);
+    return () => window.removeEventListener("funtok-read", onRead);
+  }, [me]);
   const unread = me ? list.reduce((n, c) => n + (c.unread?.[me] ?? 0), 0) : 0;
   return { conversations: list, unread };
 }
