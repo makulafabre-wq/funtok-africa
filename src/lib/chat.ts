@@ -78,7 +78,12 @@ export async function sendMessage(convo: Conversation, senderId: string, payload
   if (error) throw error;
 }
 
-export const markRead = (cid: string, _me: string) => { void supabase.rpc("mark_read", { _cid: cid }); };
+export const markRead = (cid: string, _me: string) => {
+  if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("funtok-read", { detail: cid }));
+  void supabase.rpc("mark_read", { _cid: cid }).then(() => {
+    if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("funtok-read-done", { detail: cid }));
+  });
+};
 export const setTyping = (cid: string, _me: string, on: boolean) => { void supabase.rpc("set_typing", { _cid: cid, _on: on }); };
 
 async function loadConversations(me: string): Promise<Conversation[]> {
@@ -124,7 +129,12 @@ export function listenConversations(me: string, cb: (c: Conversation[]) => void)
     .on("postgres_changes", { event: "*", schema: "public", table: "conversations" }, refresh)
     .subscribe();
   const t = setInterval(refresh, 8000);
-  return () => { alive = false; clearInterval(t); supabase.removeChannel(ch); };
+  const onRead = () => { refresh(); };
+  if (typeof window !== "undefined") window.addEventListener("funtok-read-done", onRead);
+  return () => {
+    alive = false; clearInterval(t); supabase.removeChannel(ch);
+    if (typeof window !== "undefined") window.removeEventListener("funtok-read-done", onRead);
+  };
 }
 
 export function listenMessages(cid: string, cb: (m: Message[]) => void) {
