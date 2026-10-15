@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, Search, Video, Play, MoreVertical, Phone, UserPlus } from "lucide-react";
+import { ArrowLeft, Search, Video, Play, MoreVertical, Phone, UserPlus, Check, CheckCheck } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth, useConversations, toPerson } from "@/hooks/use-auth";
 import { useHorizontalSwipe } from "@/hooks/use-swipe";
@@ -193,7 +193,8 @@ function ChatThread({ convo, me }: { convo: Conversation; me: string }) {
   const info = convo.participantInfo?.[otherId];
 
   useEffect(() => listenMessages(convo.id, setMessages), [convo.id]);
-  useEffect(() => { if (receipts) markRead(convo.id, me); bottom.current?.scrollIntoView({ behavior: "smooth" }); }, [messages.length, convo.id, me, receipts]);
+  // Always mark as read when viewing so the unread badge clears immediately
+  useEffect(() => { markRead(convo.id, me); bottom.current?.scrollIntoView({ behavior: "smooth" }); }, [messages.length, convo.id, me]);
 
   const onType = (_v: string) => {
     if (!showOnline) return;
@@ -220,7 +221,7 @@ function ChatThread({ convo, me }: { convo: Conversation; me: string }) {
         <ThreadMenu me={me} otherId={otherId} name={info?.displayName} onChanged={() => {}} />
       </div>
       <div className="flex-1 space-y-2 overflow-y-auto px-3 py-4">
-        {messages.map((m) => <Bubble key={m.id} m={m} mine={m.senderId === me} size={size} />)}
+        {messages.map((m) => <Bubble key={m.id} m={m} mine={m.senderId === me} size={size} otherReadAt={convo.readAt?.[otherId]} />)}
         {typing && <div className="w-16 rounded-2xl bg-bubble-them px-3 py-2 text-center text-muted-foreground">•••</div>}
         <div ref={bottom} />
       </div>
@@ -229,7 +230,8 @@ function ChatThread({ convo, me }: { convo: Conversation; me: string }) {
   );
 }
 
-function Bubble({ m, mine, size }: { m: Message; mine: boolean; size: string }) {
+function Bubble({ m, mine, size, otherReadAt }: { m: Message; mine: boolean; size: string; otherReadAt?: string | null | undefined }) {
+  const read = mine && !!otherReadAt && tsMillis(otherReadAt) >= tsMillis(m.createdAt);
   const [playing, setPlaying] = useState(false);
   return (
     <div className={`flex ${mine ? "justify-end" : "justify-start"}`}>
@@ -251,7 +253,10 @@ function Bubble({ m, mine, size }: { m: Message; mine: boolean; size: string }) 
         )}
         <MediaContent imageUrl={m.imageUrl} audioUrl={m.audioUrl} fileUrl={m.fileUrl} fileName={m.fileName} />
         {m.text && <p className={`whitespace-pre-wrap break-words px-3 py-2 ${textSizeClass(size)}`}>{m.text}</p>}
-        <p className={`px-3 pb-1 text-right text-[10px] ${mine ? "text-primary-foreground/70" : "text-muted-foreground"}`}>{formatChatTime(m.createdAt)}</p>
+        <p className={`flex items-center justify-end gap-1 px-3 pb-1 text-[10px] ${mine ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
+          {formatChatTime(m.createdAt)}
+          {mine && (read ? <CheckCheck className="h-3.5 w-3.5 text-online" /> : <Check className="h-3.5 w-3.5" />)}
+        </p>
       </div>
     </div>
   );

@@ -9,6 +9,7 @@ export type Conversation = {
   lastAt?: string;
   unread?: Record<string, number>;
   typing?: Record<string, string | null>;
+  readAt?: Record<string, string | null>;
 };
 export type Message = {
   id: string;
@@ -107,6 +108,7 @@ async function loadConversations(me: string): Promise<Conversation[]> {
       lastAt: c.last_at,
       unread: Object.fromEntries(ms.map((m) => [m.user_id, m.unread])),
       typing: Object.fromEntries(ms.map((m) => [m.user_id, m.typing_at])),
+      readAt: Object.fromEntries(ms.map((m) => [m.user_id, m.last_read_at])),
     } as Conversation;
   });
   list.sort((a, b) => (b.lastAt ?? "").localeCompare(a.lastAt ?? ""));
