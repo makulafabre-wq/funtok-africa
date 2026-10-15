@@ -253,7 +253,10 @@ function Bubble({ m, mine, size, otherReadAt }: { m: Message; mine: boolean; siz
         )}
         <MediaContent imageUrl={m.imageUrl} audioUrl={m.audioUrl} fileUrl={m.fileUrl} fileName={m.fileName} />
         {m.text && <p className={`whitespace-pre-wrap break-words px-3 py-2 ${textSizeClass(size)}`}>{m.text}</p>}
-        <p className={`px-3 pb-1 text-right text-[10px] ${mine ? "text-primary-foreground/70" : "text-muted-foreground"}`}>{formatChatTime(m.createdAt)}</p>
+        <p className={`flex items-center justify-end gap-1 px-3 pb-1 text-[10px] ${mine ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
+          {formatChatTime(m.createdAt)}
+          {mine && (read ? <CheckCheck className="h-3.5 w-3.5 text-online" /> : <Check className="h-3.5 w-3.5" />)}
+        </p>
       </div>
     </div>
   );
