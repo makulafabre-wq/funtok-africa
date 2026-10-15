@@ -29,6 +29,13 @@
       "when": 1791962413683,
       "tag": "0003_chat_attachments",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792039906136,
+      "tag": "0004_fix_unread_counts",
+      "breakpoints": true
     }
   ]
 }
