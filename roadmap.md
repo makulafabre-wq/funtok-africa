@@ -7,5 +7,5 @@
 - [ ] Ads: AdMob (native app) + in-house ads table, banner, feed ads, interstitial, rewarded boost
 - [ ] PWA manifest + Capacitor config
 - [ ] 5-minute trending refresh schedule
-- [ ] Fire tab: 1v1 Live Battles + Random Live
-- [ ] Post page redesign like TikTok screenshot (sound pill, camera tools, post card)
+- [x] Fire tab: 1v1 Live Battles + Random Live
+- [x] Post page redesign like TikTok screenshot (sound pill, camera tools, post card)
