@@ -6,11 +6,12 @@ export type FeedVideo = Tables<"videos"> & {
 };
 export type HouseAd = Tables<"ads">;
 export type FeedEntry = { kind: "video"; video: FeedVideo } | { kind: "ad"; ad: HouseAd | null; key: string };
-export type FeedTab = "foryou" | "following" | "trending" | "nearby";
+export type FeedTab = "foryou" | "fire" | "following" | "trending" | "nearby";
 
 const SELECT = "*, profiles(username, display_name, avatar_url)";
 
 export async function fetchFeed(tab: FeedTab, userId?: string): Promise<FeedVideo[]> {
+  if (tab === "fire") return [];
   if (tab === "trending") {
     const { data } = await supabase.from("videos").select(SELECT).eq("visibility", "public").order("trending_score", { ascending: false }).limit(50);
     return (data ?? []) as FeedVideo[];

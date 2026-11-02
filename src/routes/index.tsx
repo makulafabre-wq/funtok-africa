@@ -9,6 +9,7 @@ import { useHorizontalSwipe } from "@/hooks/use-swipe";
 import { fetchFeed, injectAds, type FeedTab } from "@/lib/feed";
 import { showNativeRewarded } from "@/lib/ads";
 import { Feed } from "@/components/funtok/Feed";
+import { FireHub } from "@/components/funtok/FireHub";
 import { BottomNav } from "@/components/funtok/BottomNav";
 import { SideToggle } from "@/components/funtok/SideToggle";
 import { Logo } from "@/components/funtok/Logo";
@@ -16,6 +17,7 @@ import { BannerAd, HouseAdOverlay, useAdSetup } from "@/components/funtok/Ads";
 
 const TABS: { id: FeedTab; label: string }[] = [
   { id: "foryou", label: "For You" },
+  { id: "fire", label: "🔥 Fire" },
   { id: "following", label: "Following" },
   { id: "trending", label: "Trending 🔥" },
   { id: "nearby", label: "Nearby" },
@@ -41,7 +43,7 @@ function FunSide() {
   const { tab = "foryou", v } = Route.useSearch();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const swipe = useHorizontalSwipe(() => navigate({ to: "/chat" }));
+  const swipe = useHorizontalSwipe(() => { if (tab !== "fire") void navigate({ to: "/chat" }); });
   const ads = useAdSetup();
   const [rewarding, setRewarding] = useState(false);
 
@@ -66,7 +68,9 @@ function FunSide() {
   return (
     <div className="flex h-[100dvh] flex-col bg-background" {...swipe}>
       <div className="relative flex-1 overflow-hidden">
-        {feed.isLoading ? (
+        {tab === "fire" ? (
+          <FireHub />
+        ) : feed.isLoading ? (
           <div className="flex h-full items-center justify-center"><div className="h-10 w-10 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>
         ) : entries.length ? (
           <Feed key={tab} entries={entries} startIndex={startIndex} ranked={tab === "trending"} />
