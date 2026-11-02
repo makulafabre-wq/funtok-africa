@@ -234,6 +234,42 @@ export type Database = {
           },
         ]
       }
+      live_rooms: {
+        Row: {
+          created_at: string
+          guest_id: string | null
+          guest_votes: number
+          host_id: string
+          host_votes: number
+          id: string
+          mode: string
+          started_at: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          guest_id?: string | null
+          guest_votes?: number
+          host_id: string
+          host_votes?: number
+          id?: string
+          mode: string
+          started_at?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          guest_id?: string | null
+          guest_votes?: number
+          host_id?: string
+          host_votes?: number
+          id?: string
+          mode?: string
+          started_at?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           audio_url: string | null
@@ -485,6 +521,8 @@ export type Database = {
       boost_video: { Args: { _video_id: string }; Returns: undefined }
       find_user_by_phone: { Args: { _phone: string }; Returns: string }
       is_member: { Args: { _cid: string }; Returns: boolean }
+      join_live: { Args: { _mode: string }; Returns: string }
+      leave_live: { Args: { _room: string }; Returns: undefined }
       mark_read: { Args: { _cid: string }; Returns: undefined }
       recalc_all_trending: { Args: never; Returns: undefined }
       recalc_trending: { Args: { _video_id: string }; Returns: undefined }
@@ -500,6 +538,7 @@ export type Database = {
       set_typing: { Args: { _cid: string; _on: boolean }; Returns: undefined }
       start_conversation: { Args: { _other: string }; Returns: string }
       track_ad: { Args: { _ad_id: string; _kind: string }; Returns: undefined }
+      vote_live: { Args: { _room: string; _side: string }; Returns: undefined }
     }
     Enums: {
       [_ in never]: never

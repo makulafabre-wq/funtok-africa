@@ -114,3 +114,4 @@
 @utility animate-heart { animation: heart-pop 0.35s ease-out; }
 @keyframes spin-slow { to { transform: rotate(360deg); } }
 @utility animate-spin-slow { animation: spin-slow 5s linear infinite; }
+@utility bg-gradient-brand { background-image: var(--gradient-brand); }
