@@ -36,6 +36,13 @@
       "when": 1792039906136,
       "tag": "0004_fix_unread_counts",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793647051039,
+      "tag": "0005_live_rooms",
+      "breakpoints": true
     }
   ]
 }
