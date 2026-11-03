@@ -11,3 +11,5 @@
 - [x] Post page redesign like TikTok screenshot (sound pill, camera tools, post card)
 
 - [ ] Camera recording with baked-in filters and Bunny posting
+
+- [ ] Six-person live rooms in Fire
