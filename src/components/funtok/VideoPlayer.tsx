@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { loadHls } from "@/lib/hls-loader";
+import { Video } from "lucide-react";
 
 type Props = {
   src: string;
@@ -18,6 +19,7 @@ export function VideoPlayer({ src, poster, active, prebuffer = false, muted, onT
   const activeRef = useRef(active);
   const bufferRef = useRef(active || prebuffer);
   const [playing, setPlaying] = useState(false);
+  const [posterFailed, setPosterFailed] = useState(false);
   activeRef.current = active;
   bufferRef.current = active || prebuffer;
   const watchRef = useRef(onWatch);
@@ -27,6 +29,7 @@ export function VideoPlayer({ src, poster, active, prebuffer = false, muted, onT
     const el = ref.current;
     if (!el) return;
     setPlaying(false);
+    setPosterFailed(false);
     let cancelled = false;
     const playWhenReady = () => { if (activeRef.current) void el.play().catch(() => undefined); };
     el.addEventListener("loadeddata", playWhenReady);
@@ -96,7 +99,8 @@ export function VideoPlayer({ src, poster, active, prebuffer = false, muted, onT
       onClick={onTap}
       className={className ?? "h-full w-full object-cover"}
     />
-    {poster && !playing && <img src={poster} alt="" decoding="async" fetchPriority={active || prebuffer ? "high" : "low"} onClick={onTap} className="absolute inset-0 h-full w-full object-cover" />}
+    {poster && !playing && !posterFailed && <img src={poster} alt="" decoding="async" fetchPriority={active || prebuffer ? "high" : "low"} onError={() => setPosterFailed(true)} onClick={onTap} className="absolute inset-0 h-full w-full object-cover" />}
+    {!playing && posterFailed && <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 bg-card text-muted-foreground"><Video className="h-12 w-12" /><span className="text-sm">Video unavailable</span></div>}
     </div>
   );
 }
