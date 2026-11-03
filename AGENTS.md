@@ -8,3 +8,5 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+- Camera recordings use browser MediaRecorder with a canvas-filtered video stream and cloned microphone audio; the resulting File goes through the existing Bunny upload flow so camera filters are preserved in posted videos.

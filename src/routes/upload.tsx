@@ -1,12 +1,14 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as tus from "tus-js-client";
-import { AudioLines, ChevronRight, Gauge, Hash, Loader2, MapPin, Music2, Smile, Sparkles, Timer, UploadCloud, Users, Wand2, X } from "lucide-react";
+import { AudioLines, Camera, ChevronRight, Gauge, Hash, Loader2, MapPin, Music2, Smile, Sparkles, Timer, UploadCloud, Users, Wand2, X } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { createUploadTicket } from "@/lib/bunny.functions";
 import { BUNNY_CDN, extractTags, thumbUrl } from "@/lib/bunny";
+import { CameraRecorder } from "@/components/funtok/CameraRecorder";
+import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/upload")({
   head: () => ({ meta: [
@@ -14,6 +16,8 @@ export const Route = createFileRoute("/upload")({
     { name: "description", content: "Upload a video to the Funtok Fun Side." },
     { property: "og:title", content: "Post a video — Funtok" },
     { property: "og:description", content: "Upload a video to the Funtok Fun Side." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
   ] }),
   component: UploadPage,
 });
@@ -39,6 +43,9 @@ function UploadPage() {
   const [beauty, setBeauty] = useState(false);
   const [effect, setEffect] = useState(false);
   const [speed, setSpeed] = useState(1);
+  const [cameraOpen, setCameraOpen] = useState(false);
+
+  useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
 
   const pickFile = (f: File | null): void => {
     if (!f) return;
@@ -118,26 +125,25 @@ function UploadPage() {
     const re = new RegExp(`(^|\\s)${t}(?=\\s|$)`);
     setCaption((c) => (re.test(c) ? c.replace(re, "").trim() : `${c.trim()} ${t}`.trim()));
   };
-  const filter = FILTERS[filterIdx]!;
+  const filter = FILTERS[filterIdx] ?? FILTERS[0];
   const tools = [
-    { icon: Sparkles, label: "Filters", on: filterIdx > 0, act: () => { const n = (filterIdx + 1) % FILTERS.length; setFilterIdx(n); toast(`Filter: ${FILTERS[n]!.name}`); } },
+    { icon: Sparkles, label: "Filters", on: filterIdx > 0, act: () => { const n = (filterIdx + 1) % FILTERS.length; setFilterIdx(n); toast(`Filter: ${FILTERS[n]?.name ?? "None"}`); } },
     { icon: Smile, label: "Beauty", on: beauty, act: () => setBeauty((b) => !b) },
     { icon: Wand2, label: "Effects", on: effect, act: () => setEffect((e) => !e) },
     { icon: Timer, label: "Timer", on: false, act: () => toast("Timer works when recording with the camera") },
-    { icon: Gauge, label: `${speed}x`, on: speed !== 1, act: () => { const n = SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length]!; setSpeed(n); if (previewRef.current) previewRef.current.playbackRate = n; } },
+    { icon: Gauge, label: `${speed}x`, on: speed !== 1, act: () => { const n = SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length] ?? 1; setSpeed(n); if (previewRef.current) previewRef.current.playbackRate = n; } },
   ];
-  const css = [filter.css, beauty ? "brightness(1.08) contrast(0.95) saturate(1.1)" : "", effect ? "hue-rotate(40deg) saturate(1.6)" : ""].join(" ");
+  const css = [filter?.css ?? "", beauty ? "brightness(1.08) contrast(0.95) saturate(1.1)" : "", effect ? "hue-rotate(40deg) saturate(1.6)" : ""].join(" ");
 
   return (
     <div className="relative mx-auto h-[100dvh] w-full max-w-md overflow-hidden bg-background">
       {preview ? (
         <video ref={previewRef} src={preview} style={{ filter: css }} className="absolute inset-0 h-full w-full object-cover" muted loop autoPlay playsInline />
       ) : (
-        <button onClick={() => fileInput.current?.click()} className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-card/50">
-          <UploadCloud className="h-14 w-14 text-primary" />
-          <p className="font-semibold">Choose a video</p>
-          <p className="text-xs text-muted-foreground">MP4 or any video · up to 500 MB</p>
-        </button>
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-card/50 pb-40">
+          <Button size="lg" onClick={() => setCameraOpen(true)}><Camera /> Open camera</Button>
+          <Button variant="outline" onClick={() => fileInput.current?.click()}><UploadCloud /> Choose a video</Button>
+        </div>
       )}
 
       <div className="absolute inset-x-3 top-3 flex items-center rounded-3xl border border-border/50 bg-overlay px-3 py-3 backdrop-blur-md">
@@ -187,7 +193,7 @@ function UploadPage() {
         </button>
         <div className="flex items-center gap-3 rounded-2xl bg-card/60 px-3 py-2">
           <Users className="h-5 w-5" />
-          <span className="flex-1"><span className="block text-xs text-muted-foreground">Who can view</span><span className="text-sm font-semibold">{VIS.find((v) => v.id === visibility)!.label}</span></span>
+          <span className="flex-1"><span className="block text-xs text-muted-foreground">Who can view</span><span className="text-sm font-semibold">{VIS.find((v) => v.id === visibility)?.label ?? "Everyone"}</span></span>
           <div className="flex rounded-lg bg-muted p-0.5 text-xs">
             {VIS.map((v) => <button key={v.id} onClick={() => setVisibility(v.id)} className={`rounded-md px-2 py-1 ${visibility === v.id ? "bg-background font-semibold" : "text-muted-foreground"}`}>{v.label}</button>)}
           </div>
@@ -215,6 +221,10 @@ function UploadPage() {
         </div>
       )}
 
+      {cameraOpen && <CameraRecorder onClose={() => setCameraOpen(false)} onCapture={(recorded) => {
+        setFilterIdx(0); setBeauty(false); setEffect(false); setSpeed(1);
+        pickFile(recorded); setCameraOpen(false);
+      }} />}
       <input ref={fileInput} type="file" accept="video/*" className="hidden" onChange={(e) => pickFile(e.target.files?.[0] ?? null)} />
     </div>
   );
