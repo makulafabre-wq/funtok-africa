@@ -208,6 +208,94 @@ export type Database = {
         }
         Relationships: []
       }
+      group_live_members: {
+        Row: {
+          heartbeat_at: string
+          joined_at: string
+          room_id: string
+          seat: number
+          user_id: string
+        }
+        Insert: {
+          heartbeat_at?: string
+          joined_at?: string
+          room_id: string
+          seat: number
+          user_id: string
+        }
+        Update: {
+          heartbeat_at?: string
+          joined_at?: string
+          room_id?: string
+          seat?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_live_members_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "group_live_rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      group_live_rooms: {
+        Row: {
+          created_at: string
+          ended_at: string | null
+          host_id: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          ended_at?: string | null
+          host_id: string
+          id?: string
+        }
+        Update: {
+          created_at?: string
+          ended_at?: string | null
+          host_id?: string
+          id?: string
+        }
+        Relationships: []
+      }
+      group_live_signals: {
+        Row: {
+          created_at: string
+          id: number
+          payload: Json
+          recipient_id: string
+          room_id: string
+          sender_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: never
+          payload: Json
+          recipient_id: string
+          room_id: string
+          sender_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: never
+          payload?: Json
+          recipient_id?: string
+          room_id?: string
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_live_signals_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "group_live_rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       likes: {
         Row: {
           created_at: string
@@ -520,8 +608,12 @@ export type Database = {
     Functions: {
       boost_video: { Args: { _video_id: string }; Returns: undefined }
       find_user_by_phone: { Args: { _phone: string }; Returns: string }
+      heartbeat_group_live: { Args: { _room: string }; Returns: undefined }
+      is_group_live_member: { Args: { _room: string }; Returns: boolean }
       is_member: { Args: { _cid: string }; Returns: boolean }
+      join_group_live: { Args: { _room?: string }; Returns: string }
       join_live: { Args: { _mode: string }; Returns: string }
+      leave_group_live: { Args: { _room: string }; Returns: undefined }
       leave_live: { Args: { _room: string }; Returns: undefined }
       mark_read: { Args: { _cid: string }; Returns: undefined }
       recalc_all_trending: { Args: never; Returns: undefined }
