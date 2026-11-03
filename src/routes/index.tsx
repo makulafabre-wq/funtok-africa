@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Flame, Search, Camera, Rocket } from "lucide-react";
@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useHorizontalSwipe } from "@/hooks/use-swipe";
-import { fetchFeed, injectAds, type FeedTab } from "@/lib/feed";
+import { fetchFeed, injectAds, type FeedTab, type HouseAd } from "@/lib/feed";
 import { showNativeRewarded } from "@/lib/ads";
 import { Feed } from "@/components/funtok/Feed";
 import { FireHub } from "@/components/funtok/FireHub";
@@ -34,6 +34,8 @@ export const Route = createFileRoute("/")({
       { name: "description", content: "Swipe trending short videos from Uganda, then jump to Chat Side to share them with friends." },
       { property: "og:title", content: "Funtok — Fun Side videos from Kampala" },
       { property: "og:description", content: "Swipe trending short videos from Uganda and share them in chat." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: FunSide,
@@ -47,10 +49,9 @@ function FunSide() {
   const ads = useAdSetup();
   const [rewarding, setRewarding] = useState(false);
 
-  const feed = useQuery({ queryKey: ["feed", tab, user?.id], queryFn: () => fetchFeed(tab, user?.id) });
-  const videos = feed.data ?? [];
-  const entries = injectAds(videos, ads.data?.ads ?? [], ads.data?.every ?? 5, (ads.data?.enabled ?? true) && tab !== "trending");
-  const startIndex = v ? Math.max(0, entries.findIndex((e) => e.kind === "video" && e.video.id === v)) : 0;
+  const [visited, setVisited] = useState<FeedTab[]>([tab]);
+  useEffect(() => { setVisited((previous) => previous.includes(tab) ? previous : [...previous, tab]); }, [tab]);
+  const mountedTabs = visited.includes(tab) ? visited : [...visited, tab];
 
   const boost = async (): Promise<void> => {
     if (!user) { toast("Sign in to boost your video"); return; }
@@ -59,7 +60,8 @@ function FunSide() {
     else if (res) applyBoost();
   };
   const applyBoost = async (): Promise<void> => {
-    const { data } = await supabase.from("videos").select("id").eq("user_id", user!.id).order("created_at", { ascending: false }).limit(1).maybeSingle();
+    if (!user) return;
+    const { data } = await supabase.from("videos").select("id").eq("user_id", user.id).order("created_at", { ascending: false }).limit(1).maybeSingle();
     if (!data) { toast("Post a video first, then boost it"); return; }
     const { error } = await supabase.rpc("boost_video", { _video_id: data.id });
     if (error) toast.error("Boost failed"); else toast.success("Your latest video is boosted x2 for 1 hour 🔥");
@@ -68,15 +70,9 @@ function FunSide() {
   return (
     <div className="flex h-[100dvh] flex-col bg-background" {...swipe}>
       <div className="relative flex-1 overflow-hidden">
-        {tab === "fire" ? (
-          <FireHub />
-        ) : feed.isLoading ? (
-          <div className="flex h-full items-center justify-center"><div className="h-10 w-10 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>
-        ) : entries.length ? (
-          <Feed key={tab} entries={entries} startIndex={startIndex} ranked={tab === "trending"} />
-        ) : (
-          <EmptyFeed tab={tab} signedIn={!!user} />
-        )}
+        {mountedTabs.map((panel) => <div key={panel} className="absolute inset-0" hidden={panel !== tab}>
+          {panel === "fire" ? (panel === tab ? <FireHub /> : null) : <FeedPanel tab={panel} active={panel === tab} userId={user?.id} sharedVideo={v} adSetup={ads.data} />}
+        </div>)}
 
         <header className="pointer-events-none absolute inset-x-0 top-0 z-20 space-y-2 bg-gradient-to-b from-overlay to-transparent px-3 pb-6 pt-3">
           <div className="pointer-events-auto flex items-center justify-between">
@@ -112,6 +108,18 @@ function FunSide() {
       )}
     </div>
   );
+}
+
+function FeedPanel({ tab, active, userId, sharedVideo, adSetup }: {
+  tab: FeedTab; active: boolean; userId: string | undefined; sharedVideo: string | undefined;
+  adSetup: { ads: HouseAd[]; every: number; enabled: boolean } | undefined;
+}) {
+  const feed = useQuery({ queryKey: ["feed", tab, userId], queryFn: () => fetchFeed(tab, userId), enabled: active, staleTime: 5 * 60_000, gcTime: 30 * 60_000, refetchOnWindowFocus: false });
+  const entries = injectAds(feed.data ?? [], adSetup?.ads ?? [], adSetup?.every ?? 5, (adSetup?.enabled ?? true) && tab !== "trending");
+  const startIndex = sharedVideo ? Math.max(0, entries.findIndex((entry) => entry.kind === "video" && entry.video.id === sharedVideo)) : 0;
+  if (feed.isLoading) return <div className="flex h-full items-center justify-center"><div className="h-10 w-10 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>;
+  if (!entries.length) return <EmptyFeed tab={tab} signedIn={!!userId} />;
+  return <Feed entries={entries} startIndex={startIndex} ranked={tab === "trending"} enabled={active} />;
 }
 
 function EmptyFeed({ tab, signedIn }: { tab: FeedTab; signedIn: boolean }) {

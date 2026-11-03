@@ -12,7 +12,7 @@ import { Caption } from "./Caption";
 import { CommentsSheet } from "./CommentsSheet";
 import { SendToChatSheet } from "./SendToChatSheet";
 
-export function FeedItem({ video, active, muted, onToggleMute, rank }: { video: FeedVideo; active: boolean; muted: boolean; onToggleMute: () => void; rank?: number | undefined }) {
+export function FeedItem({ video, active, prebuffer = false, muted, onToggleMute, rank }: { video: FeedVideo; active: boolean; prebuffer?: boolean; muted: boolean; onToggleMute: () => void; rank?: number | undefined }) {
   const { user } = useAuth();
   const [liked, setLiked] = useState(false);
   const [likes, setLikes] = useState(video.likes_count);
@@ -53,7 +53,7 @@ export function FeedItem({ video, active, muted, onToggleMute, rank }: { video: 
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-background">
-      <VideoPlayer src={playlistUrl(video.bunny_video_id)} poster={thumbUrl(video.bunny_video_id, 720)} active={active} muted={muted} onTap={onToggleMute} onWatch={onWatch} />
+      <VideoPlayer src={playlistUrl(video.bunny_video_id)} poster={video.thumbnail_url || thumbUrl(video.bunny_video_id, 720)} active={active} prebuffer={prebuffer} muted={muted} onTap={onToggleMute} onWatch={onWatch} />
       <div className="pointer-events-none absolute inset-0 bg-scrim" />
 
       <button onClick={onToggleMute} className="absolute left-3 top-24 rounded-full bg-overlay p-2" aria-label={muted ? "Unmute" : "Mute"}>

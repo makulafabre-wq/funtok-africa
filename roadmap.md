@@ -1,11 +1,15 @@
 # Funtok roadmap
 - [x] Backend: profiles, videos, likes, follows, comments, views, trending
-- [ ] Fun Side feed (For You / Following / Trending / Nearby) with Bunny playback
-- [ ] Chat Side on Firebase (needs Firebase web config from user)
-- [ ] Upload to Bunny 775931 + CapCut helper
-- [ ] Profile + single video page
-- [ ] Ads: AdMob (native app) + in-house ads table, banner, feed ads, interstitial, rewarded boost
-- [ ] PWA manifest + Capacitor config
-- [ ] 5-minute trending refresh schedule
+- [x] Fun Side feed and existing Bunny upload integration
+- [x] Chat Side using Lovable Cloud
+- [x] Profile + single video page
 - [x] Fire tab: 1v1 Live Battles + Random Live
 - [x] Post page redesign like TikTok screenshot (sound pill, camera tools, post card)
+
+- [x] Camera recording with baked-in filters into the existing Bunny upload flow; recorded-file preview verified
+
+- [x] Six-person live rooms, secure signaling, microphone/camera controls; single-user join/leave verified
+- [ ] Six-device remote live verification — needs six participating devices/accounts; restrictive networks may need a TURN relay
+
+- [x] Next-video buffering, poster layer, retained tabs, shared HLS loading; tab retention verified
+- [ ] Real Bunny playback and camera-post verification — existing playlists and thumbnails return HTTP 403; Bunny CDN access must be restored
