@@ -10,6 +10,8 @@ export const Route = createFileRoute("/video/$id")({
     { name: "description", content: "Watch this video on the Funtok Fun Side." },
     { property: "og:title", content: "Watch on Funtok" },
     { property: "og:description", content: "Watch this video on the Funtok Fun Side." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
   ] }),
   component: VideoPage,
 });

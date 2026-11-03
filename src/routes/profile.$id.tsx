@@ -11,6 +11,8 @@ export const Route = createFileRoute("/profile/$id")({
     { name: "description", content: "Watch this creator's videos on Funtok." },
     { property: "og:title", content: "Creator profile — Funtok" },
     { property: "og:description", content: "Watch this creator's videos on Funtok." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
   ] }),
   component: Profile,
 });

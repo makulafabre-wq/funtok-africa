@@ -27,6 +27,8 @@ export const Route = createFileRoute("/chat")({
       { name: "description", content: "Message friends on Funtok and share Fun Side videos right in the chat." },
       { property: "og:title", content: "Chat Side — Funtok" },
       { property: "og:description", content: "Message friends and share Fun Side videos." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: ChatSide,
