@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import type { Tables } from "@/integrations/supabase/types";
 import { Avatar } from "./Avatar";
+import { GroupLiveHub } from "./GroupLive";
 
 type Room = Tables<"live_rooms">;
 type Mini = { id: string; username: string; avatar_url: string | null };
@@ -46,8 +47,9 @@ export function FireHub() {
     setRoomId(data);
   };
 
-  if (roomId || watching) {
-    return <LiveRoom id={(roomId ?? watching)!} me={user?.id} viewer={!roomId}
+  const activeRoom = roomId ?? watching;
+  if (activeRoom) {
+    return <LiveRoom id={activeRoom} me={user?.id} viewer={!roomId}
       onLeave={() => { setRoomId(null); setWatching(null); }}
       onNext={async () => { const m = roomId; setRoomId(null); if (m) await supabase.rpc("leave_live", { _room: m }); void join("random"); }} />;
   }
@@ -73,6 +75,7 @@ export function FireHub() {
         </button>
       </div>
 
+      <GroupLiveHub me={user?.id} />
       <h3 className="mb-3 mt-8 text-sm font-semibold text-muted-foreground">LIVE BATTLES NOW</h3>
       {live.length === 0 ? (
         <p className="rounded-xl bg-card p-6 text-center text-sm text-muted-foreground">No battles live right now. Start one!</p>
@@ -192,7 +195,7 @@ function LiveRoom({ id, me, viewer, onLeave, onNext }: { id: string; me: string 
       )}
       {!isBattle && !viewer && (
         <div className="flex gap-2 p-3">
-          {guest && room && <Link to="/profile/$id" params={{ id: iAmHost ? room.guest_id! : room.host_id }} className="flex-1 rounded-xl border border-border py-2.5 text-center text-sm font-semibold">View profile</Link>}
+          {guest && room?.guest_id && <Link to="/profile/$id" params={{ id: iAmHost ? room.guest_id : room.host_id }} className="flex-1 rounded-xl border border-border py-2.5 text-center text-sm font-semibold">View profile</Link>}
           <button onClick={onNext} className="flex flex-1 items-center justify-center gap-1 rounded-xl bg-primary py-2.5 text-sm font-bold text-primary-foreground"><SkipForward className="h-4 w-4" /> Next</button>
         </div>
       )}

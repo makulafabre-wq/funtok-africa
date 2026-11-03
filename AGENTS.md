@@ -10,3 +10,4 @@
 <!-- LOVABLE:END -->
 
 - Camera recordings use browser MediaRecorder with a canvas-filtered video stream and cloned microphone audio; the resulting File goes through the existing Bunny upload flow so camera filters are preserved in posted videos.
+- Group live uses a six-seat, row-locked join RPC and expiring membership heartbeats; browser WebRTC mesh exchanges participant-scoped database signals so video and audio are not merely local previews.
