@@ -1,46 +1,62 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { loadHls } from "@/lib/hls-loader";
 
 type Props = {
   src: string;
   poster?: string;
   active: boolean;
+  prebuffer?: boolean;
   muted: boolean;
   onTap?: () => void;
   onWatch?: (seconds: number, percent: number) => void;
   className?: string;
 };
 
-export function VideoPlayer({ src, poster, active, muted, onTap, onWatch, className }: Props) {
+export function VideoPlayer({ src, poster, active, prebuffer = false, muted, onTap, onWatch, className }: Props) {
   const ref = useRef<HTMLVideoElement>(null);
+  const hlsRef = useRef<import("hls.js").default | null>(null);
+  const activeRef = useRef(active);
+  const bufferRef = useRef(active || prebuffer);
+  const [playing, setPlaying] = useState(false);
+  activeRef.current = active;
+  bufferRef.current = active || prebuffer;
   const watchRef = useRef(onWatch);
   watchRef.current = onWatch;
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    let hls: { destroy: () => void } | undefined;
+    setPlaying(false);
     let cancelled = false;
+    const playWhenReady = () => { if (activeRef.current) void el.play().catch(() => undefined); };
+    el.addEventListener("loadeddata", playWhenReady);
     if (el.canPlayType("application/vnd.apple.mpegurl")) {
       el.src = src;
     } else {
-      import("hls.js").then(({ default: Hls }) => {
+      loadHls().then(({ default: Hls }) => {
         if (cancelled) return;
         if (Hls.isSupported()) {
-          const h = new Hls({ maxBufferLength: 10 });
+          const h = new Hls({ autoStartLoad: false, maxBufferLength: 8, maxMaxBufferLength: 12, backBufferLength: 2 });
+          hlsRef.current = h;
           h.loadSource(src);
           h.attachMedia(el);
-          hls = h;
+          h.on(Hls.Events.MANIFEST_PARSED, () => { if (bufferRef.current) h.startLoad(); playWhenReady(); });
         } else el.src = src;
-      });
+      }).catch(() => { if (!cancelled) el.src = src; });
     }
-    return () => { cancelled = true; hls?.destroy(); };
+    return () => { cancelled = true; el.removeEventListener("loadeddata", playWhenReady); hlsRef.current?.destroy(); hlsRef.current = null; el.pause(); el.removeAttribute("src"); el.load(); };
   }, [src]);
+
+  useEffect(() => {
+    if (active || prebuffer) hlsRef.current?.startLoad();
+    else hlsRef.current?.stopLoad();
+  }, [active, prebuffer]);
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
     if (active) el.play().catch(() => {});
-    else el.pause();
+    else { el.pause(); setPlaying(false); }
   }, [active, src]);
 
   useEffect(() => {
@@ -66,15 +82,21 @@ export function VideoPlayer({ src, poster, active, muted, onTap, onWatch, classN
   }, [active]);
 
   return (
+    <div className="relative h-full w-full overflow-hidden">
     <video
       ref={ref}
       poster={poster}
       loop
       playsInline
       muted={muted}
-      preload="metadata"
+      preload={active || prebuffer ? "auto" : "none"}
+      onPlaying={() => setPlaying(true)}
+      onWaiting={() => setPlaying(false)}
+      onError={() => setPlaying(false)}
       onClick={onTap}
       className={className ?? "h-full w-full object-cover"}
     />
+    {poster && !playing && <img src={poster} alt="" decoding="async" fetchPriority={active || prebuffer ? "high" : "low"} onClick={onTap} className="absolute inset-0 h-full w-full object-cover" />}
+    </div>
   );
 }

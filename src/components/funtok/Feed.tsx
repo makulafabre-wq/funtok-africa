@@ -3,13 +3,15 @@ import type { FeedEntry } from "@/lib/feed";
 import { INTERSTITIAL_EVERY, showNativeInterstitial } from "@/lib/ads";
 import { FeedItem } from "./FeedItem";
 import { FeedAdCard, HouseAdOverlay } from "./Ads";
+import { loadHls } from "@/lib/hls-loader";
 
-export function Feed({ entries, startIndex = 0, ranked }: { entries: FeedEntry[]; startIndex?: number; ranked?: boolean }) {
+export function Feed({ entries, startIndex = 0, ranked, enabled = true }: { entries: FeedEntry[]; startIndex?: number; ranked?: boolean; enabled?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(startIndex);
   const [muted, setMuted] = useState(true);
   const [interstitial, setInterstitial] = useState(false);
   const swipes = useRef(0);
+  useEffect(() => { void loadHls().catch(() => undefined); }, []);
 
   useEffect(() => {
     const el = ref.current;
@@ -39,9 +41,9 @@ export function Feed({ entries, startIndex = 0, ranked }: { entries: FeedEntry[]
             <div key={e.kind === "video" ? e.video.id : e.key} className="h-full w-full snap-start snap-always">
               {Math.abs(i - active) <= 2 ? (
                 e.kind === "video" ? (
-                  <FeedItem video={e.video} active={i === active && !interstitial} muted={muted} onToggleMute={() => setMuted((m) => !m)} rank={ranked ? rank : undefined} />
+                  <FeedItem video={e.video} active={enabled && i === active && !interstitial} prebuffer={enabled && i === active + 1} muted={muted} onToggleMute={() => setMuted((m) => !m)} rank={ranked ? rank : undefined} />
                 ) : (
-                  <FeedAdCard ad={e.ad} active={i === active} />
+                  <FeedAdCard ad={e.ad} active={enabled && i === active} />
                 )
               ) : null}
             </div>
