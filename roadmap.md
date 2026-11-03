@@ -9,3 +9,5 @@
 - [ ] 5-minute trending refresh schedule
 - [x] Fire tab: 1v1 Live Battles + Random Live
 - [x] Post page redesign like TikTok screenshot (sound pill, camera tools, post card)
+
+- [ ] Camera recording with baked-in filters and Bunny posting
