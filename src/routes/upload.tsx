@@ -156,16 +156,16 @@ function UploadPage() {
       </div>
 
       {preview && (
-        <div className="absolute right-3 top-28 flex flex-col gap-4 rounded-3xl border border-border/50 bg-overlay px-2 py-4 backdrop-blur-md">
+        <div className="absolute right-2 top-20 flex max-h-[calc(45dvh-5rem)] flex-col gap-2 overflow-y-auto rounded-3xl border border-border/50 bg-overlay px-1.5 py-2 sm:right-3 sm:top-28 sm:gap-4 sm:px-2 sm:py-4 backdrop-blur-md">
           {tools.map((t) => (
             <button key={t.label} onClick={t.act} className={`flex flex-col items-center gap-1 text-[11px] font-semibold ${t.on ? "text-primary" : ""}`}>
-              <t.icon className="h-6 w-6" /> {t.label}
+              <t.icon className="h-5 w-5 sm:h-6 sm:w-6" /> {t.label}
             </button>
           ))}
         </div>
       )}
 
-      <div className="absolute inset-x-3 bottom-3 space-y-2 rounded-3xl border border-border/50 bg-overlay p-3 backdrop-blur-md">
+      <div className="absolute inset-x-2 bottom-2 max-h-[55dvh] space-y-1.5 overflow-y-auto rounded-3xl border border-border/50 bg-overlay p-2.5 backdrop-blur-md sm:inset-x-3 sm:bottom-3 sm:space-y-2 sm:p-3">
         <div className="flex items-center gap-3 rounded-2xl border border-border/50 bg-card/60 px-3 py-2.5">
           <Hash className="h-5 w-5" />
           <input value={caption} onChange={(e) => setCaption(e.target.value)} maxLength={500} disabled={stage !== "details" && stage !== "pick"} placeholder="Add caption..." className="flex-1 bg-transparent text-sm outline-none" />
@@ -192,9 +192,9 @@ function UploadPage() {
           <span className="flex-1"><span className="block text-xs text-muted-foreground">Add Location</span><span className="text-sm font-semibold">{LOCATIONS[locIdx]}</span></span>
           <ChevronRight className="h-4 w-4 text-muted-foreground" />
         </button>
-        <div className="flex items-center gap-3 rounded-2xl bg-card/60 px-3 py-2">
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-card/60 px-3 py-2">
           <Users className="h-5 w-5" />
-          <span className="flex-1"><span className="block text-xs text-muted-foreground">Who can view</span><span className="text-sm font-semibold">{VIS.find((v) => v.id === visibility)?.label ?? "Everyone"}</span></span>
+          <span className="min-w-0 flex-1"><span className="block text-xs text-muted-foreground">Who can view</span><span className="text-sm font-semibold">{VIS.find((v) => v.id === visibility)?.label ?? "Everyone"}</span></span>
           <div className="flex rounded-lg bg-muted p-0.5 text-xs">
             {VIS.map((v) => <button key={v.id} onClick={() => setVisibility(v.id)} className={`rounded-md px-2 py-1 ${visibility === v.id ? "bg-background font-semibold" : "text-muted-foreground"}`}>{v.label}</button>)}
           </div>
@@ -204,7 +204,7 @@ function UploadPage() {
           <div className="h-2 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-gradient-brand transition-all" style={{ width: `${progress}%` }} /></div>
         )}
         <button onClick={() => (file ? void startUpload() : fileInput.current?.click())} disabled={stage === "uploading" || stage === "done"}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-brand py-3.5 font-display text-2xl font-bold text-primary-foreground disabled:opacity-80">
+          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-brand py-2.5 font-display text-xl sm:py-3.5 sm:text-2xl font-bold text-primary-foreground disabled:opacity-80">
           {stage === "uploading" ? <><Loader2 className="h-6 w-6 animate-spin" /> {progress}%</> : stage === "done" ? "Posted! 🎉" : file ? "Post to Fun" : "Choose video"}
         </button>
       </div></>}
