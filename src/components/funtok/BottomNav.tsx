@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Clapperboard, MessageCircle, Plus, User, Flame } from "lucide-react";
+import { Clapperboard, MessageCircle, Plus, User, Flame, Store } from "lucide-react";
 import { useAuth, useConversations } from "@/hooks/use-auth";
 
 export function BottomNav() {
@@ -15,6 +15,9 @@ export function BottomNav() {
       </Link>
       <Link to="/" search={{ tab: "trending" }} activeOptions={{ includeSearch: true }} activeProps={active} inactiveProps={inactive} className={item}>
         <Flame className="h-6 w-6" /> Trending
+      </Link>
+      <Link to="/market" activeProps={active} inactiveProps={inactive} className={item}>
+        <Store className="h-6 w-6" /> Market
       </Link>
       <Link to="/upload" className="flex flex-1 items-center justify-center py-2" aria-label="Upload">
         <span className="flex h-9 w-12 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-glow">
