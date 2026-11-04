@@ -358,6 +358,68 @@ export type Database = {
         }
         Relationships: []
       }
+      market_listings: {
+        Row: {
+          bunny_video_id: string | null
+          category: string
+          condition: string
+          created_at: string
+          currency: string
+          delivery: boolean
+          description: string
+          id: string
+          image_paths: string[]
+          is_sold: boolean
+          location: string
+          phone: string | null
+          price: number
+          seller_id: string
+          title: string
+        }
+        Insert: {
+          bunny_video_id?: string | null
+          category?: string
+          condition?: string
+          created_at?: string
+          currency?: string
+          delivery?: boolean
+          description?: string
+          id?: string
+          image_paths?: string[]
+          is_sold?: boolean
+          location?: string
+          phone?: string | null
+          price: number
+          seller_id: string
+          title: string
+        }
+        Update: {
+          bunny_video_id?: string | null
+          category?: string
+          condition?: string
+          created_at?: string
+          currency?: string
+          delivery?: boolean
+          description?: string
+          id?: string
+          image_paths?: string[]
+          is_sold?: boolean
+          location?: string
+          phone?: string | null
+          price?: number
+          seller_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "market_listings_seller_id_fkey"
+            columns: ["seller_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           audio_url: string | null
