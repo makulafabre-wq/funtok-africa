@@ -50,6 +50,13 @@
       "when": 1793684617979,
       "tag": "0006_group_live_six_seats",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793810926968,
+      "tag": "0007_market_listings",
+      "breakpoints": true
     }
   ]
 }
