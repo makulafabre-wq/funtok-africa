@@ -44,6 +44,7 @@ function UploadPage() {
   const [effect, setEffect] = useState(false);
   const [speed, setSpeed] = useState(1);
   const [cameraOpen, setCameraOpen] = useState(false);
+  const [clean, setClean] = useState(false);
 
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
 
@@ -138,7 +139,7 @@ function UploadPage() {
   return (
     <div className="relative mx-auto h-[100dvh] w-full max-w-md overflow-hidden bg-background">
       {preview ? (
-        <video ref={previewRef} src={preview} style={{ filter: css }} className="absolute inset-0 h-full w-full object-cover" muted loop autoPlay playsInline />
+        <video ref={previewRef} src={preview} style={{ filter: css }} className="absolute inset-0 h-full w-full object-cover" muted={!clean} loop autoPlay playsInline onClick={() => { setClean((c) => !c); void previewRef.current?.play().catch(() => {}); }} />
       ) : (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-card/50 pb-40">
           <Button size="lg" onClick={() => setCameraOpen(true)}><Camera /> Open camera</Button>
@@ -146,7 +147,7 @@ function UploadPage() {
         </div>
       )}
 
-      <div className="absolute inset-x-3 top-3 flex items-center rounded-3xl border border-border/50 bg-overlay px-3 py-3 backdrop-blur-md">
+      {!clean && <><div className="absolute inset-x-3 top-3 flex items-center rounded-3xl border border-border/50 bg-overlay px-3 py-3 backdrop-blur-md">
         <button onClick={() => { if (stage !== "uploading") { reset(); void navigate({ to: "/" }); } }} className="rounded-full border border-border/60 p-2.5" aria-label="Close"><X className="h-5 w-5" /></button>
         <button onClick={() => setSoundOpen(true)} className="mx-auto flex items-center gap-2 rounded-full border border-border/60 bg-overlay px-4 py-2 text-sm font-semibold">
           <Music2 className="h-4 w-4" /> {sound ?? "Add Sound"} <AudioLines className="h-4 w-4 text-muted-foreground" />
@@ -206,7 +207,8 @@ function UploadPage() {
           className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-brand py-3.5 font-display text-2xl font-bold text-primary-foreground disabled:opacity-80">
           {stage === "uploading" ? <><Loader2 className="h-6 w-6 animate-spin" /> {progress}%</> : stage === "done" ? "Posted! 🎉" : file ? "Post to Fun" : "Choose video"}
         </button>
-      </div>
+      </div></>}
+      {clean && <p className="pointer-events-none absolute inset-x-0 top-4 text-center text-xs text-muted-foreground">Tap video to show tools</p>}
 
       {soundOpen && (
         <div className="absolute inset-0 z-30 flex items-end bg-overlay" onClick={() => setSoundOpen(false)}>

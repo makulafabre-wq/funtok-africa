@@ -126,8 +126,8 @@ export function CameraRecorder({ onCapture, onClose }: { onCapture: (file: File)
   };
 
   return (
-    <div role="dialog" aria-label="Record a video" className="absolute inset-0 z-40 flex flex-col bg-background">
-      <video ref={video} muted playsInline className="absolute inset-0 h-full w-full object-contain" style={{ filter }} />
+    <div role="dialog" aria-label="Record a video" className="fixed inset-0 z-50 flex flex-col bg-background">
+      <video ref={video} muted playsInline className="absolute inset-0 h-full w-full object-cover" style={{ filter }} />
       <canvas ref={canvas} className="hidden" />
       <div className="relative flex items-center justify-between bg-overlay p-3">
         <Button variant="ghost" size="icon" aria-label="Cancel recording" onClick={onClose}><X /></Button>
