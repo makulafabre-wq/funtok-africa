@@ -161,8 +161,8 @@ function LiveRoom({ id, me, viewer, onLeave, onNext }: { id: string; me: string 
   );
 
   return (
-    <div className="flex h-full flex-col pt-28">
-      <div className="flex items-center justify-between px-3 pb-2">
+    <div className="fixed inset-0 z-50 flex flex-col bg-background">
+      <div className="absolute inset-x-0 top-0 z-10 flex items-center justify-between px-3 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <span className="flex items-center gap-1 rounded-full bg-primary px-3 py-1 text-xs font-bold text-primary-foreground">
           {isBattle ? <Swords className="h-3.5 w-3.5" /> : <Shuffle className="h-3.5 w-3.5" />}
           {waiting ? "WAITING" : ended ? "ENDED" : "LIVE"}
@@ -171,13 +171,13 @@ function LiveRoom({ id, me, viewer, onLeave, onNext }: { id: string; me: string 
         <button onClick={() => void leave()} className="rounded-full bg-overlay p-2" aria-label="Leave live"><X className="h-4 w-4" /></button>
       </div>
 
-      <div className="flex flex-1 flex-col gap-1">
+      <div className="flex min-h-0 flex-1 flex-col gap-0.5">
         <Panel p={host} mine={iAmHost} />
         <Panel p={guest} mine={!iAmHost && me === room?.guest_id} />
       </div>
 
       {isBattle && !waiting && (
-        <div className="space-y-2 p-3">
+        <div className="absolute inset-x-0 bottom-0 z-10 space-y-2 bg-overlay p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           <div className="flex h-3 overflow-hidden rounded-full bg-muted">
             <div className="bg-primary transition-all" style={{ width: `${hostPct}%` }} />
             <div className="flex-1 bg-accent" />
@@ -194,7 +194,7 @@ function LiveRoom({ id, me, viewer, onLeave, onNext }: { id: string; me: string 
         </div>
       )}
       {!isBattle && !viewer && (
-        <div className="flex gap-2 p-3">
+        <div className="absolute inset-x-0 bottom-0 z-10 flex gap-2 bg-overlay p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           {guest && room?.guest_id && <Link to="/profile/$id" params={{ id: iAmHost ? room.guest_id : room.host_id }} className="flex-1 rounded-xl border border-border py-2.5 text-center text-sm font-semibold">View profile</Link>}
           <button onClick={onNext} className="flex flex-1 items-center justify-center gap-1 rounded-xl bg-primary py-2.5 text-sm font-bold text-primary-foreground"><SkipForward className="h-4 w-4" /> Next</button>
         </div>
