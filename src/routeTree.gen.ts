@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ChatRouteImport } from './routes/chat'
+import { Route as MarketRouteImport } from './routes/market'
 import { Route as UploadRouteImport } from './routes/upload'
 import { Route as ProfileIdRouteImport } from './routes/profile.$id'
 import { Route as VideoIdRouteImport } from './routes/video.$id'
@@ -29,6 +30,11 @@ const AuthRoute = AuthRouteImport.update({
 const ChatRoute = ChatRouteImport.update({
   id: '/chat',
   path: '/chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MarketRoute = MarketRouteImport.update({
+  id: '/market',
+  path: '/market',
   getParentRoute: () => rootRouteImport,
 } as any)
 const UploadRoute = UploadRouteImport.update({
@@ -51,6 +57,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/chat': typeof ChatRoute
+  '/market': typeof MarketRoute
   '/upload': typeof UploadRoute
   '/profile/$id': typeof ProfileIdRoute
   '/video/$id': typeof VideoIdRoute
@@ -59,6 +66,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/chat': typeof ChatRoute
+  '/market': typeof MarketRoute
   '/upload': typeof UploadRoute
   '/profile/$id': typeof ProfileIdRoute
   '/video/$id': typeof VideoIdRoute
@@ -68,20 +76,36 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/chat': typeof ChatRoute
+  '/market': typeof MarketRoute
   '/upload': typeof UploadRoute
   '/profile/$id': typeof ProfileIdRoute
   '/video/$id': typeof VideoIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/chat' | '/upload' | '/profile/$id' | '/video/$id'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/chat'
+    | '/market'
+    | '/upload'
+    | '/profile/$id'
+    | '/video/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/chat' | '/upload' | '/profile/$id' | '/video/$id'
+  to:
+    | '/'
+    | '/auth'
+    | '/chat'
+    | '/market'
+    | '/upload'
+    | '/profile/$id'
+    | '/video/$id'
   id:
     | '__root__'
     | '/'
     | '/auth'
     | '/chat'
+    | '/market'
     | '/upload'
     | '/profile/$id'
     | '/video/$id'
@@ -91,6 +115,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
   ChatRoute: typeof ChatRoute
+  MarketRoute: typeof MarketRoute
   UploadRoute: typeof UploadRoute
   ProfileIdRoute: typeof ProfileIdRoute
   VideoIdRoute: typeof VideoIdRoute
@@ -117,6 +142,13 @@ declare module '@tanstack/react-router' {
       path: '/chat'
       fullPath: '/chat'
       preLoaderRoute: typeof ChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/market': {
+      id: '/market'
+      path: '/market'
+      fullPath: '/market'
+      preLoaderRoute: typeof MarketRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/upload': {
@@ -147,6 +179,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
   ChatRoute: ChatRoute,
+  MarketRoute: MarketRoute,
   UploadRoute: UploadRoute,
   ProfileIdRoute: ProfileIdRoute,
   VideoIdRoute: VideoIdRoute,
