@@ -3,8 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { FeedVideo } from "@/lib/feed";
 import { FeedItem } from "./FeedItem";
 
-const mocks = vi.hoisted(() => ({ insert: vi.fn(), remove: vi.fn(), mute: vi.fn() }));
-vi.mock("@/hooks/use-auth", () => ({ useAuth: () => ({ user: { id: "viewer" } }) }));
+const mocks = vi.hoisted(() => ({ insert: vi.fn(), remove: vi.fn(), mute: vi.fn(), user: { id: "viewer" } }));
+vi.mock("@/hooks/use-auth", () => ({ useAuth: () => ({ user: mocks.user }) }));
 vi.mock("@/hooks/use-follow", () => ({ useFollow: () => ({ following: false, ownProfile: false, pending: false, toggle: vi.fn() }) }));
 vi.mock("@tanstack/react-router", () => ({ Link: ({ children }: { children: React.ReactNode }) => <span>{children}</span> }));
 vi.mock("@/integrations/supabase/client", () => ({ supabase: { from: () => ({

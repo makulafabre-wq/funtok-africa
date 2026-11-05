@@ -1,5 +1,5 @@
 # Funtok roadmap
-- [ ] Double-tap feed likes, avatar follow badges, and creator profile Follow button
+- [x] Double-tap feed likes, avatar follow badges, and creator profile Follow button; signed-in like and follow/unfollow verified
 - [x] Backend: profiles, videos, likes, follows, comments, views, trending
 - [x] Fun Side feed and existing Bunny upload integration
 - [x] Chat Side using Lovable Cloud
