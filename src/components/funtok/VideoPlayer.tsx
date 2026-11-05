@@ -9,11 +9,24 @@ type Props = {
   prebuffer?: boolean;
   muted: boolean;
   onTap?: () => void;
+  onDoubleTap?: () => void;
   onWatch?: (seconds: number, percent: number) => void;
   className?: string;
 };
 
-export function VideoPlayer({ src, poster, active, prebuffer = false, muted, onTap, onWatch, className }: Props) {
+export function VideoPlayer({ src, poster, active, prebuffer = false, muted, onTap, onDoubleTap, onWatch, className }: Props) {
+  const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (tapTimer.current) clearTimeout(tapTimer.current); tapTimer.current = null; }, [active]);
+  const handleTap = () => {
+    if (!onDoubleTap) { onTap?.(); return; }
+    if (tapTimer.current) {
+      clearTimeout(tapTimer.current);
+      tapTimer.current = null;
+      onDoubleTap();
+    } else {
+      tapTimer.current = setTimeout(() => { tapTimer.current = null; onTap?.(); }, 280);
+    }
+  };
   const ref = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<import("hls.js").default | null>(null);
   const activeRef = useRef(active);
@@ -85,7 +98,7 @@ export function VideoPlayer({ src, poster, active, prebuffer = false, muted, onT
   }, [active]);
 
   return (
-    <div className="relative h-full w-full overflow-hidden">
+    <div className="relative h-full w-full overflow-hidden" onClick={handleTap}>
     <video
       ref={ref}
       poster={poster}
@@ -96,10 +109,9 @@ export function VideoPlayer({ src, poster, active, prebuffer = false, muted, onT
       onPlaying={() => setPlaying(true)}
       onWaiting={() => setPlaying(false)}
       onError={() => setPlaying(false)}
-      onClick={onTap}
       className={className ?? "h-full w-full object-cover"}
     />
-    {poster && !playing && !posterFailed && <img src={poster} alt="" decoding="async" fetchPriority={active || prebuffer ? "high" : "low"} onError={() => setPosterFailed(true)} onClick={onTap} className="absolute inset-0 h-full w-full object-cover" />}
+    {poster && !playing && !posterFailed && <img src={poster} alt="" decoding="async" fetchPriority={active || prebuffer ? "high" : "low"} onError={() => setPosterFailed(true)} className="absolute inset-0 h-full w-full object-cover" />}
     {!playing && posterFailed && <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 bg-card text-muted-foreground"><Video className="h-12 w-12" /><span className="text-sm">Video unavailable</span></div>}
     </div>
   );

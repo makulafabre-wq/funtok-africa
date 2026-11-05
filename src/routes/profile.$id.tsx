@@ -4,6 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { thumbUrl, formatCount } from "@/lib/bunny";
 import { Avatar } from "@/components/funtok/Avatar";
 import { BottomNav } from "@/components/funtok/BottomNav";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/use-auth";
+import { useFollow } from "@/hooks/use-follow";
+import { UserPlus, UserCheck } from "lucide-react";
 
 export const Route = createFileRoute("/profile/$id")({
   head: () => ({ meta: [
@@ -19,6 +23,8 @@ export const Route = createFileRoute("/profile/$id")({
 
 function Profile() {
   const { id } = Route.useParams();
+  const { user } = useAuth();
+  const follow = useFollow(id, user?.id);
   const { data: p } = useQuery({ queryKey: ["profile", id], queryFn: async () => (await supabase.from("profiles").select("*").eq("id", id).maybeSingle()).data });
   const { data: vids } = useQuery({ queryKey: ["user-videos", id], queryFn: async () => (await supabase.from("videos").select("id, bunny_video_id, views_count").eq("user_id", id).order("created_at", { ascending: false })).data ?? [] });
   return (
@@ -33,7 +39,7 @@ function Profile() {
             <span><b>{formatCount(p?.likes_count ?? 0)}</b><br />Likes</span>
           </div>
           {p?.bio && <p className="text-sm text-muted-foreground">{p.bio}</p>}
-          <Link to="/chat" search={{ user: id }} className="rounded-lg bg-primary px-6 py-2 font-semibold text-primary-foreground">Message</Link>
+          {!follow.ownProfile && <Button onClick={follow.toggle} disabled={follow.pending} variant={follow.following ? "secondary" : "default"} className="px-6" aria-pressed={follow.following}>{follow.following ? <UserCheck /> : <UserPlus />}{follow.following ? "Following" : "Follow"}</Button>}
         </div>
         <div className="mt-6 grid grid-cols-3 gap-0.5">
           {vids?.map((v) => (
