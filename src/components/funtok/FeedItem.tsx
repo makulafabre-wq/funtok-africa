@@ -1,9 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Heart, MessageCircleMore, Share2, Send, Music2, Flame, Volume2, VolumeX } from "lucide-react";
+import { Heart, MessageCircleMore, Share2, Send, Music2, Flame, Volume2, VolumeX, Plus, Download, Link2, UserRound, MoreHorizontal } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { useFollow } from "@/hooks/use-follow";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { prepareVideoDownload, deliverVideo } from "@/lib/video-download";
 import { formatCount, playlistUrl, thumbUrl } from "@/lib/bunny";
 import type { FeedVideo } from "@/lib/feed";
 import { VideoPlayer } from "./VideoPlayer";
@@ -14,25 +18,52 @@ import { SendToChatSheet } from "./SendToChatSheet";
 
 export function FeedItem({ video, active, prebuffer = false, muted, onToggleMute, rank }: { video: FeedVideo; active: boolean; prebuffer?: boolean; muted: boolean; onToggleMute: () => void; rank?: number | undefined }) {
   const { user } = useAuth();
+  const follow = useFollow(video.user_id, user?.id);
+  const likeBusy = useRef(false);
+  const heartTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [heartBurst, setHeartBurst] = useState(false);
+  useEffect(() => () => { if (heartTimer.current) clearTimeout(heartTimer.current); }, []);
   const [liked, setLiked] = useState(false);
   const [likes, setLikes] = useState(video.likes_count);
   const [pop, setPop] = useState(false);
   const [comments, setComments] = useState(false);
   const [send, setSend] = useState(false);
+  const [menu, setMenu] = useState(false);
+  const [download, setDownload] = useState<Blob | null>(null);
+  const [preparing, setPreparing] = useState(false);
+  const downloadVideo = async () => {
+    if (download) { await deliverVideo(download, `funtok-${video.id}.mp4`); return; }
+    setPreparing(true);
+    try { setDownload(await prepareVideoDownload(video.bunny_video_id)); }
+    catch (error) { toast.error(error instanceof Error ? error.message : "Download failed. Try again."); }
+    finally { setPreparing(false); }
+  };
 
   useEffect(() => {
     if (!user) return;
     supabase.from("likes").select("video_id").eq("video_id", video.id).eq("user_id", user.id).maybeSingle().then(({ data }) => setLiked(!!data));
   }, [user, video.id]);
 
-  const toggleLike = async () => {
+  const toggleLike = async (onlyLike = false) => {
     if (!user) { toast("Sign in to like videos"); return; }
+    if (likeBusy.current || (onlyLike && liked)) return;
+    likeBusy.current = true;
     const next = !liked;
     setLiked(next); setLikes((n) => n + (next ? 1 : -1)); setPop(true); setTimeout(() => setPop(false), 400);
+    try {
     const res = next
       ? await supabase.from("likes").insert({ video_id: video.id, user_id: user.id })
       : await supabase.from("likes").delete().eq("video_id", video.id).eq("user_id", user.id);
     if (res.error) { setLiked(!next); setLikes((n) => n + (next ? -1 : 1)); }
+    } catch { setLiked(!next); setLikes((n) => n + (next ? -1 : 1)); }
+    finally { likeBusy.current = false; }
+  };
+  const doubleTapLike = () => {
+    if (!user) { toast("Sign in to like videos"); return; }
+    setHeartBurst(true);
+    if (heartTimer.current) clearTimeout(heartTimer.current);
+    heartTimer.current = setTimeout(() => setHeartBurst(false), 650);
+    void toggleLike(true);
   };
 
   const share = async () => {
@@ -53,12 +84,14 @@ export function FeedItem({ video, active, prebuffer = false, muted, onToggleMute
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-background">
-      <VideoPlayer src={playlistUrl(video.bunny_video_id)} poster={video.thumbnail_url || thumbUrl(video.bunny_video_id, 720)} active={active} prebuffer={prebuffer} muted={muted} onTap={onToggleMute} onWatch={onWatch} />
+      <VideoPlayer src={playlistUrl(video.bunny_video_id)} poster={video.thumbnail_url || thumbUrl(video.bunny_video_id, 720)} active={active && !menu} prebuffer={prebuffer} muted={muted} tapToPause onLongPress={() => setMenu(true)} onDoubleTap={doubleTapLike} onWatch={onWatch} />
       <div className="pointer-events-none absolute inset-0 bg-scrim" />
+      {heartBurst && <div className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden="true"><Heart className="h-24 w-24 fill-primary text-primary motion-safe:animate-heart" /></div>}
 
       <button onClick={onToggleMute} className="absolute left-3 top-24 rounded-full bg-overlay p-2" aria-label={muted ? "Unmute" : "Mute"}>
         {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
       </button>
+      <Button variant="ghost" size="icon" aria-label="Video options" title="Video options" onClick={() => setMenu(true)} className="absolute left-3 top-36 rounded-full bg-overlay"><MoreHorizontal /></Button>
 
       {rank !== undefined && (
         <div className="absolute right-3 top-24 flex flex-col items-end gap-1">
@@ -68,8 +101,11 @@ export function FeedItem({ video, active, prebuffer = false, muted, onToggleMute
       )}
 
       <div className="absolute bottom-6 right-2 flex flex-col items-center gap-5">
-        <Link to="/profile/$id" params={{ id: video.user_id }}><Avatar url={p?.avatar_url} name={p?.username} size={46} ring /></Link>
-        <button onClick={toggleLike} className={btn} aria-label="Like">
+        <div className="relative mb-1">
+          <Link to="/profile/$id" params={{ id: video.user_id }} aria-label={`View ${p?.username ?? "creator"} profile`}><Avatar url={p?.avatar_url} name={p?.username} size={46} ring /></Link>
+          {!follow.ownProfile && !follow.following && <Button size="icon" onClick={follow.toggle} disabled={follow.pending} aria-label={`Follow ${p?.username ?? "creator"}`} title="Follow creator" className="absolute -bottom-2 left-1/2 h-6 w-6 -translate-x-1/2 rounded-full border-2 border-background p-0"><Plus /></Button>}
+        </div>
+        <button onClick={() => void toggleLike()} className={btn} aria-label="Like" aria-pressed={liked}>
           <Heart className={`h-8 w-8 ${liked ? "fill-primary text-primary" : ""} ${pop ? "animate-heart" : ""}`} />
           {formatCount(likes)}
         </button>
@@ -95,6 +131,19 @@ export function FeedItem({ video, active, prebuffer = false, muted, onToggleMute
 
       <CommentsSheet videoId={video.id} open={comments} onOpenChange={setComments} allowComments={video.allow_comments} />
       <SendToChatSheet open={send} onOpenChange={setSend} bunnyVideoId={video.bunny_video_id} videoRowId={video.id} />
+      <Sheet open={menu} onOpenChange={setMenu}>
+        <SheetContent side="bottom" className="max-h-[80dvh] overflow-y-auto" aria-describedby={undefined}>
+          <SheetTitle>Video options</SheetTitle>
+          <div className="mx-auto mt-4 grid max-w-lg grid-cols-2 gap-3">
+            <Button variant="secondary" disabled={preparing} onClick={() => void downloadVideo()}><Download />{preparing ? "Preparing…" : download ? "Save video" : "Download video"}</Button>
+            <Button variant="secondary" onClick={() => void share()}><Share2 />Share</Button>
+            <Button variant="secondary" onClick={() => { void navigator.clipboard.writeText(`${window.location.origin}/video/${video.id}`).then(() => toast.success("Link copied")).catch(() => toast.error("Couldn't copy link")); }}><Link2 />Copy link</Button>
+            <Button variant="secondary" onClick={() => { setMenu(false); setSend(true); }}><Send />Send to chat</Button>
+            <Button variant="secondary" onClick={onToggleMute}>{muted ? <Volume2 /> : <VolumeX />}{muted ? "Unmute" : "Mute"}</Button>
+            <Button variant="secondary" asChild><Link to="/profile/$id" params={{ id: video.user_id }}><UserRound />View creator</Link></Button>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
