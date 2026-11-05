@@ -17,7 +17,13 @@ vi.mock("./CommentsSheet", () => ({ CommentsSheet: () => null }));
 vi.mock("./SendToChatSheet", () => ({ SendToChatSheet: () => null }));
 
 describe("Feed double-tap likes", () => {
-  beforeEach(() => { vi.clearAllMocks(); mocks.insert.mockResolvedValue({ error: null }); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.insert.mockResolvedValue({ error: null });
+    vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
+    vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
+    vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => {});
+  });
   it("likes once on double-tap without unliking on another double-tap or toggling mute", async () => {
     const video = { id: "video", user_id: "creator", bunny_video_id: "bunny", likes_count: 4, comments_count: 0, shares_count: 0, caption: "", profiles: { username: "creator" } } as FeedVideo;
     const { container } = render(<FeedItem video={video} active muted onToggleMute={mocks.mute} />);
