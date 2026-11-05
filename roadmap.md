@@ -1,4 +1,5 @@
 # Funtok roadmap
+- [ ] Single-tap pause/resume and long-press video menu with download and sharing
 - [x] Double-tap feed likes, avatar follow badges, and creator profile Follow button; signed-in like and follow/unfollow verified
 - [x] Backend: profiles, videos, likes, follows, comments, views, trending
 - [x] Fun Side feed and existing Bunny upload integration
