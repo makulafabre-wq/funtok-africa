@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { loadHls } from "@/lib/hls-loader";
-import { Video } from "lucide-react";
+import { Video, Play } from "lucide-react";
 
 type Props = {
   src: string;
@@ -10,21 +10,38 @@ type Props = {
   muted: boolean;
   onTap?: () => void;
   onDoubleTap?: () => void;
+  onLongPress?: () => void;
+  tapToPause?: boolean;
   onWatch?: (seconds: number, percent: number) => void;
   className?: string;
 };
 
-export function VideoPlayer({ src, poster, active, prebuffer = false, muted, onTap, onDoubleTap, onWatch, className }: Props) {
+export function VideoPlayer({ src, poster, active, prebuffer = false, muted, onTap, onDoubleTap, onLongPress, tapToPause = false, onWatch, className }: Props) {
+  const [paused, setPaused] = useState(false);
+  const pausedRef = useRef(false);
+  const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const suppressClick = useRef(false);
+  const startPoint = useRef({ x: 0, y: 0 });
+  const clearHold = () => { if (holdTimer.current) clearTimeout(holdTimer.current); holdTimer.current = null; };
+  useEffect(() => () => clearHold(), []);
+  const singleTap = () => {
+    if (!tapToPause) { onTap?.(); return; }
+    pausedRef.current = !pausedRef.current;
+    setPaused(pausedRef.current);
+    if (pausedRef.current) ref.current?.pause();
+    else if (activeRef.current) void ref.current?.play().catch(() => undefined);
+  };
   const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (tapTimer.current) clearTimeout(tapTimer.current); tapTimer.current = null; }, [active]);
   const handleTap = () => {
-    if (!onDoubleTap) { onTap?.(); return; }
+    if (suppressClick.current) { suppressClick.current = false; return; }
+    if (!onDoubleTap) { singleTap(); return; }
     if (tapTimer.current) {
       clearTimeout(tapTimer.current);
       tapTimer.current = null;
       onDoubleTap();
     } else {
-      tapTimer.current = setTimeout(() => { tapTimer.current = null; onTap?.(); }, 280);
+      tapTimer.current = setTimeout(() => { tapTimer.current = null; singleTap(); }, 280);
     }
   };
   const ref = useRef<HTMLVideoElement>(null);
@@ -44,7 +61,7 @@ export function VideoPlayer({ src, poster, active, prebuffer = false, muted, onT
     setPlaying(false);
     setPosterFailed(false);
     let cancelled = false;
-    const playWhenReady = () => { if (activeRef.current) void el.play().catch(() => undefined); };
+    const playWhenReady = () => { if (activeRef.current && !pausedRef.current) void el.play().catch(() => undefined); };
     el.addEventListener("loadeddata", playWhenReady);
     if (el.canPlayType("application/vnd.apple.mpegurl")) {
       el.src = src;
@@ -71,6 +88,8 @@ export function VideoPlayer({ src, poster, active, prebuffer = false, muted, onT
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+    pausedRef.current = false;
+    setPaused(false);
     if (active) el.play().catch(() => {});
     else { el.pause(); setPlaying(false); }
   }, [active, src]);
@@ -98,7 +117,21 @@ export function VideoPlayer({ src, poster, active, prebuffer = false, muted, onT
   }, [active]);
 
   return (
-    <div className="relative h-full w-full overflow-hidden" onClick={handleTap}>
+    <div className="relative h-full w-full select-none overflow-hidden" onClick={handleTap}
+      onPointerDown={(event) => {
+        if (event.button !== 0) return;
+        clearHold(); suppressClick.current = false;
+        startPoint.current = { x: event.clientX, y: event.clientY };
+        if (onLongPress) holdTimer.current = setTimeout(() => {
+          suppressClick.current = true;
+          if (tapTimer.current) clearTimeout(tapTimer.current);
+          tapTimer.current = null;
+          onLongPress();
+        }, 550);
+      }}
+      onPointerMove={(event) => { if (Math.hypot(event.clientX - startPoint.current.x, event.clientY - startPoint.current.y) > 12) { clearHold(); suppressClick.current = true; } }}
+      onPointerUp={clearHold} onPointerCancel={() => { clearHold(); suppressClick.current = true; }}
+      onContextMenu={(event) => { if (onLongPress) { event.preventDefault(); clearHold(); suppressClick.current = true; onLongPress(); } }}>
     <video
       ref={ref}
       poster={poster}
@@ -111,8 +144,9 @@ export function VideoPlayer({ src, poster, active, prebuffer = false, muted, onT
       onError={() => setPlaying(false)}
       className={className ?? "h-full w-full object-cover"}
     />
-    {poster && !playing && !posterFailed && <img src={poster} alt="" decoding="async" fetchPriority={active || prebuffer ? "high" : "low"} onError={() => setPosterFailed(true)} className="absolute inset-0 h-full w-full object-cover" />}
+    {poster && !playing && !paused && !posterFailed && <img src={poster} alt="" draggable={false} decoding="async" fetchPriority={active || prebuffer ? "high" : "low"} onError={() => setPosterFailed(true)} className="absolute inset-0 h-full w-full object-cover" />}
     {!playing && posterFailed && <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 bg-card text-muted-foreground"><Video className="h-12 w-12" /><span className="text-sm">Video unavailable</span></div>}
+    {paused && <div role="status" aria-label="Video paused" className="pointer-events-none absolute inset-0 flex items-center justify-center"><Play className="h-16 w-16 fill-foreground text-foreground drop-shadow-lg" /></div>}
     </div>
   );
 }

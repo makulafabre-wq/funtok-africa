@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Heart, MessageCircleMore, Share2, Send, Music2, Flame, Volume2, VolumeX, Plus } from "lucide-react";
+import { Heart, MessageCircleMore, Share2, Send, Music2, Flame, Volume2, VolumeX, Plus, Download, Link2, UserRound, MoreHorizontal } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useFollow } from "@/hooks/use-follow";
 import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { prepareVideoDownload, deliverVideo } from "@/lib/video-download";
 import { formatCount, playlistUrl, thumbUrl } from "@/lib/bunny";
 import type { FeedVideo } from "@/lib/feed";
 import { VideoPlayer } from "./VideoPlayer";
@@ -26,6 +28,16 @@ export function FeedItem({ video, active, prebuffer = false, muted, onToggleMute
   const [pop, setPop] = useState(false);
   const [comments, setComments] = useState(false);
   const [send, setSend] = useState(false);
+  const [menu, setMenu] = useState(false);
+  const [download, setDownload] = useState<Blob | null>(null);
+  const [preparing, setPreparing] = useState(false);
+  const downloadVideo = async () => {
+    if (download) { await deliverVideo(download, `funtok-${video.id}.mp4`); return; }
+    setPreparing(true);
+    try { setDownload(await prepareVideoDownload(video.bunny_video_id)); }
+    catch (error) { toast.error(error instanceof Error ? error.message : "Download failed. Try again."); }
+    finally { setPreparing(false); }
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -72,13 +84,14 @@ export function FeedItem({ video, active, prebuffer = false, muted, onToggleMute
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-background">
-      <VideoPlayer src={playlistUrl(video.bunny_video_id)} poster={video.thumbnail_url || thumbUrl(video.bunny_video_id, 720)} active={active} prebuffer={prebuffer} muted={muted} onTap={onToggleMute} onDoubleTap={doubleTapLike} onWatch={onWatch} />
+      <VideoPlayer src={playlistUrl(video.bunny_video_id)} poster={video.thumbnail_url || thumbUrl(video.bunny_video_id, 720)} active={active && !menu} prebuffer={prebuffer} muted={muted} tapToPause onLongPress={() => setMenu(true)} onDoubleTap={doubleTapLike} onWatch={onWatch} />
       <div className="pointer-events-none absolute inset-0 bg-scrim" />
       {heartBurst && <div className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden="true"><Heart className="h-24 w-24 fill-primary text-primary motion-safe:animate-heart" /></div>}
 
       <button onClick={onToggleMute} className="absolute left-3 top-24 rounded-full bg-overlay p-2" aria-label={muted ? "Unmute" : "Mute"}>
         {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
       </button>
+      <Button variant="ghost" size="icon" aria-label="Video options" title="Video options" onClick={() => setMenu(true)} className="absolute left-3 top-36 rounded-full bg-overlay"><MoreHorizontal /></Button>
 
       {rank !== undefined && (
         <div className="absolute right-3 top-24 flex flex-col items-end gap-1">
@@ -118,6 +131,19 @@ export function FeedItem({ video, active, prebuffer = false, muted, onToggleMute
 
       <CommentsSheet videoId={video.id} open={comments} onOpenChange={setComments} allowComments={video.allow_comments} />
       <SendToChatSheet open={send} onOpenChange={setSend} bunnyVideoId={video.bunny_video_id} videoRowId={video.id} />
+      <Sheet open={menu} onOpenChange={setMenu}>
+        <SheetContent side="bottom" className="max-h-[80dvh] overflow-y-auto" aria-describedby={undefined}>
+          <SheetTitle>Video options</SheetTitle>
+          <div className="mx-auto mt-4 grid max-w-lg grid-cols-2 gap-3">
+            <Button variant="secondary" disabled={preparing} onClick={() => void downloadVideo()}><Download />{preparing ? "Preparing…" : download ? "Save video" : "Download video"}</Button>
+            <Button variant="secondary" onClick={() => void share()}><Share2 />Share</Button>
+            <Button variant="secondary" onClick={() => { void navigator.clipboard.writeText(`${window.location.origin}/video/${video.id}`).then(() => toast.success("Link copied")).catch(() => toast.error("Couldn't copy link")); }}><Link2 />Copy link</Button>
+            <Button variant="secondary" onClick={() => { setMenu(false); setSend(true); }}><Send />Send to chat</Button>
+            <Button variant="secondary" onClick={onToggleMute}>{muted ? <Volume2 /> : <VolumeX />}{muted ? "Unmute" : "Mute"}</Button>
+            <Button variant="secondary" asChild><Link to="/profile/$id" params={{ id: video.user_id }}><UserRound />View creator</Link></Button>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
