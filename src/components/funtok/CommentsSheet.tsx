@@ -32,7 +32,7 @@ export function CommentsSheet({ videoId, open, onOpenChange, allowComments }: { 
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="h-[70vh] rounded-t-2xl border-border bg-popover p-0">
+      <SheetContent side="bottom" className="flex h-[60dvh] flex-col rounded-t-2xl border-border bg-popover p-0">
         <SheetHeader className="border-b border-border p-4">
           <SheetTitle className="text-center text-sm">{data?.length ?? 0} comments</SheetTitle>
         </SheetHeader>
