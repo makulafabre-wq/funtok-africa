@@ -19,7 +19,7 @@ export const Route = createFileRoute("/upload")({
     { property: "og:type", content: "website" },
     { name: "twitter:card", content: "summary" },
   ] }),
-  validateSearch: (s: Record<string, unknown>): { sound?: string } => (typeof s.sound === "string" && s.sound ? { sound: s.sound.slice(0, 100) } : {}),
+  validateSearch: (s: Record<string, unknown>): { sound?: string } => (typeof s["sound"] === "string" && s["sound"] ? { sound: s["sound"].slice(0, 100) } : {}),
   component: UploadPage,
 });
 
