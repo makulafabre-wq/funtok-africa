@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
-import { MoreVertical, UserPlus, Users, Settings, LogOut, Share2, User, Pencil, Trash2, BellOff, Bell, Phone, Info, Lock, Type, MessageCircle } from "lucide-react";
+import { MoreVertical, UserPlus, Users, Settings, LogOut, Share2, User, Pencil, Trash2, BellOff, Bell, Phone, Info, Lock, Type, MessageCircle, Archive, Ban, Eraser, Image as ImageIcon, Volume2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
@@ -22,6 +22,32 @@ export function usePref<T>(key: string, initial: T): [T, (v: T) => void] {
   }, [key]);
   const set = (nv: T) => { localStorage.setItem(`funtok:${key}`, JSON.stringify(nv)); setV(nv); window.dispatchEvent(new CustomEvent("funtok-pref", { detail: key })); };
   return [v, set];
+}
+
+export const WALLPAPERS = [
+  { id: "doodle", label: "Doodle", cls: "chat-wallpaper" },
+  { id: "plain", label: "Dark", cls: "wall-plain" },
+  { id: "green", label: "Green", cls: "wall-green" },
+  { id: "purple", label: "Purple", cls: "wall-purple" },
+  { id: "ocean", label: "Ocean", cls: "wall-ocean" },
+  { id: "black", label: "Black", cls: "wall-black" },
+] as const;
+export const wallpaperClass = (id: string) => WALLPAPERS.find((w) => w.id === id)?.cls ?? "chat-wallpaper";
+
+/** Short two-tone ping for incoming messages. */
+export function playPing() {
+  try {
+    const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    const ctx = new Ctx(); const now = ctx.currentTime;
+    [880, 1320].forEach((f, i) => {
+      const o = ctx.createOscillator(); const g = ctx.createGain();
+      o.frequency.value = f; g.gain.setValueAtTime(0.0001, now + i * 0.12);
+      g.gain.exponentialRampToValueAtTime(0.2, now + i * 0.12 + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.12 + 0.18);
+      o.connect(g).connect(ctx.destination); o.start(now + i * 0.12); o.stop(now + i * 0.12 + 0.2);
+    });
+    setTimeout(() => void ctx.close(), 600);
+  } catch { /* no audio */ }
 }
 
 export const textSizeClass = (s: string) => (s === "small" ? "text-xs" : s === "large" ? "text-base" : "text-sm");
@@ -100,6 +126,18 @@ function SettingsSheet({ me, open, onOpenChange }: { me: string; open: boolean; 
   const [online, setOnline] = usePref("showOnline", true);
   const [receipts, setReceipts] = usePref("readReceipts", true);
   const [size, setSize] = usePref("textSize", "medium");
+  const [wall, setWall] = usePref("wallpaper", "doodle");
+  const [sound, setSound] = usePref("notifySound", true);
+  const [preview, setPreview] = usePref("notifyPreview", true);
+  const [enterSend, setEnterSend] = usePref("enterSend", true);
+  const [blocked, setBlocked] = usePref<string[]>("blocked", []);
+  const [archived, setArchived] = usePref<string[]>("archived", []);
+  const [blockedNames, setBlockedNames] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (!open || !blocked.length) return;
+    supabase.from("profiles").select("id,display_name,username").in("id", blocked).then(({ data }) =>
+      setBlockedNames(Object.fromEntries((data ?? []).map((p) => [p.id, p.display_name ?? p.username]))));
+  }, [open, blocked]);
 
   useEffect(() => {
     if (!open) return;
@@ -143,15 +181,32 @@ function SettingsSheet({ me, open, onOpenChange }: { me: string; open: boolean; 
         <p className="mt-6 text-xs font-semibold uppercase text-primary">Privacy</p>
         <Row icon={<Lock className="h-5 w-5" />} title="Show online & typing" sub="Others see when you're online" right={<Switch checked={online} onCheckedChange={setOnline} />} />
         <Row icon={<Lock className="h-5 w-5" />} title="Read receipts" sub="Mark chats as read when you open them" right={<Switch checked={receipts} onCheckedChange={setReceipts} />} />
+        <Row icon={<Ban className="h-5 w-5" />} title="Blocked contacts" sub={blocked.length ? `${blocked.length} blocked` : "None"} />
+        {blocked.map((id) => (
+          <div key={id} className="flex items-center justify-between py-1 pl-10 text-sm">
+            <span className="truncate">{blockedNames[id] ?? "Contact"}</span>
+            <button onClick={() => setBlocked(blocked.filter((b) => b !== id))} className="rounded-lg bg-secondary px-3 py-1 text-xs">Unblock</button>
+          </div>
+        ))}
 
         <p className="mt-6 text-xs font-semibold uppercase text-primary">Chats</p>
         <Row icon={<Type className="h-5 w-5" />} title="Font size" right={
           <select value={size} onChange={(e) => setSize(e.target.value)} className="rounded-lg bg-secondary px-2 py-1 text-sm outline-none">
             <option value="small">Small</option><option value="medium">Medium</option><option value="large">Large</option>
           </select>} />
+        <Row icon={<ImageIcon className="h-5 w-5" />} title="Wallpaper" sub="Background behind your messages" />
+        <div className="grid grid-cols-6 gap-2 pb-2">
+          {WALLPAPERS.map((w) => (
+            <button key={w.id} onClick={() => setWall(w.id)} aria-label={w.label} className={`aspect-[3/5] rounded-lg ${w.cls} ${wall === w.id ? "ring-2 ring-online" : "ring-1 ring-border"}`} />
+          ))}
+        </div>
+        <Row icon={<Type className="h-5 w-5" />} title="Enter is send" sub="Enter key sends your message" right={<Switch checked={enterSend} onCheckedChange={setEnterSend} />} />
+        <Row icon={<Archive className="h-5 w-5" />} title="Archived chats" sub={`${archived.length} archived`} right={archived.length ? <button onClick={() => { setArchived([]); toast.success("All chats unarchived"); }} className="rounded-lg bg-secondary px-3 py-1 text-xs">Unarchive all</button> : undefined} />
 
         <p className="mt-6 text-xs font-semibold uppercase text-primary">Notifications</p>
         <Row icon={<Bell className="h-5 w-5" />} title="Message notifications" sub="Alert when a new message arrives" right={<Switch checked={notify} onCheckedChange={toggleNotify} />} />
+        <Row icon={<Volume2 className="h-5 w-5" />} title="Notification sound" sub="Play a tone for new messages" right={<Switch checked={sound} onCheckedChange={(v) => { setSound(v); if (v) playPing(); }} />} />
+        <Row icon={<Info className="h-5 w-5" />} title="Show preview" sub="Show message text in alerts" right={<Switch checked={preview} onCheckedChange={setPreview} />} />
 
         <p className="mt-6 text-xs font-semibold uppercase text-primary">Help</p>
         <Row icon={<Share2 className="h-5 w-5" />} title="Invite a friend" sub="Share the Funtok link" onClick={invite} />
@@ -162,10 +217,15 @@ function SettingsSheet({ me, open, onOpenChange }: { me: string; open: boolean; 
   );
 }
 
-export function ThreadMenu({ me, otherId, name, onChanged }: { me: string; otherId: string; name?: string | undefined; onChanged: () => void }) {
+export function ThreadMenu({ me, cid, otherId, name, onChanged }: { me: string; cid: string; otherId: string; name?: string | undefined; onChanged: () => void }) {
   const navigate = useNavigate();
   const [muted, setMuted] = usePref<string[]>("muted", []);
   const isMuted = muted.includes(otherId);
+  const [blocked, setBlocked] = usePref<string[]>("blocked", []);
+  const [archived, setArchived] = usePref<string[]>("archived", []);
+  const [cleared, setCleared] = usePref<Record<string, string>>("clearedAt", {});
+  const isBlocked = blocked.includes(otherId);
+  const isArchived = archived.includes(cid);
   const rename = async () => {
     const n = window.prompt("Contact name", name ?? "");
     if (!n?.trim()) return;
@@ -192,7 +252,16 @@ export function ThreadMenu({ me, otherId, name, onChanged }: { me: string; other
         <DropdownMenuItem onClick={() => { setMuted(isMuted ? muted.filter((m) => m !== otherId) : [...muted, otherId]); toast.success(isMuted ? "Notifications on" : "Chat muted"); }}>
           {isMuted ? <Bell className="mr-2 h-4 w-4" /> : <BellOff className="mr-2 h-4 w-4" />}{isMuted ? "Unmute notifications" : "Mute notifications"}
         </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => { setArchived(isArchived ? archived.filter((a) => a !== cid) : [...archived, cid]); toast.success(isArchived ? "Chat unarchived" : "Chat archived"); if (!isArchived) navigate({ to: "/chat" }); }}>
+          <Archive className="mr-2 h-4 w-4" />{isArchived ? "Unarchive chat" : "Archive chat"}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => { if (!window.confirm("Clear all messages in this chat on this phone?")) return; setCleared({ ...cleared, [cid]: new Date().toISOString() }); toast.success("Chat cleared"); }}>
+          <Eraser className="mr-2 h-4 w-4" />Clear chat
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => { if (!isBlocked && !window.confirm(`Block ${name ?? "this contact"}? You won't get their messages or alerts.`)) return; setBlocked(isBlocked ? blocked.filter((b) => b !== otherId) : [...blocked, otherId]); toast.success(isBlocked ? "Unblocked" : "Blocked"); }} className="text-destructive">
+          <Ban className="mr-2 h-4 w-4" />{isBlocked ? "Unblock" : "Block"}
+        </DropdownMenuItem>
         <DropdownMenuItem onClick={remove} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" />Delete contact</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

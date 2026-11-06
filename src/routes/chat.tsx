@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, Search, Video, Play, MoreVertical, Phone, UserPlus, Check, CheckCheck } from "lucide-react";
+import { ArrowLeft, Search, Video, Play, MoreVertical, Phone, UserPlus, Check, CheckCheck, Archive, Ban } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth, useConversations, toPerson } from "@/hooks/use-auth";
 import { useHorizontalSwipe } from "@/hooks/use-swipe";
@@ -17,7 +17,7 @@ import { Logo } from "@/components/funtok/Logo";
 import { BannerAd } from "@/components/funtok/Ads";
 import { ChatComposer, MediaContent } from "@/components/funtok/ChatComposer";
 import { VideoPlayer } from "@/components/funtok/VideoPlayer";
-import { ChatMainMenu, ThreadMenu, usePref, textSizeClass } from "@/components/funtok/ChatMenus";
+import { ChatMainMenu, ThreadMenu, usePref, textSizeClass, wallpaperClass, playPing } from "@/components/funtok/ChatMenus";
 
 export const Route = createFileRoute("/chat")({
   validateSearch: (s: Record<string, unknown>): { user?: string | undefined } => ({ user: typeof s["user"] === "string" ? s["user"] : undefined }),
@@ -56,7 +56,35 @@ function ChatSide() {
 
   const activeId = user && other ? conversationId(user.id, other) : null;
   const active = conversations.find((c) => c.id === activeId) ?? null;
-  const filtered = conversations.filter((c) => {
+  const [archived] = usePref<string[]>("archived", []);
+  const [blocked] = usePref<string[]>("blocked", []);
+  const [muted] = usePref<string[]>("muted", []);
+  const [notify] = usePref("notify", true);
+  const [sound] = usePref("notifySound", true);
+  const [preview] = usePref("notifyPreview", true);
+  const [showArchived, setShowArchived] = useState(false);
+  // Alert for incoming messages only (unread went up), skipping muted/blocked and the open chat while visible
+  const prevUnread = useRef<Record<string, number> | null>(null);
+  useEffect(() => {
+    if (!user) return;
+    const now = Object.fromEntries(conversations.map((c) => [c.id, c.unread?.[user.id] ?? 0]));
+    const prev = prevUnread.current; prevUnread.current = now;
+    if (!prev || !notify) return;
+    for (const c of conversations) {
+      if ((now[c.id] ?? 0) <= (prev[c.id] ?? 0)) continue;
+      const o = c.participants.find((p) => p !== user.id) ?? "";
+      if (muted.includes(o) || blocked.includes(o)) continue;
+      if (c.id === activeId && document.visibilityState === "visible") continue;
+      if (sound) playPing();
+      const name = c.participantInfo?.[o]?.displayName ?? "Funtok";
+      const body = preview ? c.lastMessage || "New message" : "New message";
+      if ("Notification" in window && Notification.permission === "granted" && document.visibilityState !== "visible") new Notification(name, { body });
+      else toast(name, { description: body });
+    }
+  }, [conversations]); // eslint-disable-line react-hooks/exhaustive-deps
+  const otherOf = (c: Conversation) => c.participants.find((p) => p !== user?.id) ?? "";
+  const archivedCount = conversations.filter((c) => archived.includes(c.id)).length;
+  const filtered = conversations.filter((c) => (showArchived ? archived.includes(c.id) : !archived.includes(c.id)) && !blocked.includes(otherOf(c))).filter((c) => {
     const o = c.participants.find((p) => p !== user?.id) ?? "";
     return (c.participantInfo?.[o]?.displayName ?? "").toLowerCase().includes(search.toLowerCase());
   });
@@ -90,6 +118,11 @@ function ChatSide() {
             </button>
             {adding && <AddChat me={user.id} onClose={() => setAdding(false)} onAdded={(uid) => { setAdding(false); navigate({ to: "/chat", search: { user: uid } }); }} />}
             <div className="flex-1 overflow-y-auto">
+              {(archivedCount > 0 || showArchived) && (
+                <button onClick={() => setShowArchived((v) => !v)} className="flex w-full items-center gap-4 px-6 py-3 text-left text-sm font-medium hover:bg-secondary/60">
+                  {showArchived ? <><ArrowLeft className="h-5 w-5 text-online" />Back to chats</> : <><Archive className="h-5 w-5 text-online" /><span className="flex-1">Archived</span><span className="text-xs text-online">{archivedCount}</span></>}
+                </button>
+              )}
               {filtered.length === 0 && <p className="px-6 pt-10 text-center text-sm text-muted-foreground">No chats yet. Tap "Add chat" and enter a friend's number.</p>}
               {filtered.map((c) => {
                 const o = c.participants.find((p) => p !== user.id) ?? user.id;
@@ -188,6 +221,9 @@ function ChatThread({ convo, me }: { convo: Conversation; me: string }) {
   const [size] = usePref("textSize", "medium");
   const [receipts] = usePref("readReceipts", true);
   const [showOnline] = usePref("showOnline", true);
+  const [wall] = usePref("wallpaper", "doodle");
+  const [cleared] = usePref<Record<string, string>>("clearedAt", {});
+  const [blocked, setBlocked] = usePref<string[]>("blocked", []);
   const [messages, setMessages] = useState<Message[]>([]);
   const bottom = useRef<HTMLDivElement>(null);
   const typingTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -205,6 +241,9 @@ function ChatThread({ convo, me }: { convo: Conversation; me: string }) {
     typingTimer.current = setTimeout(() => setTyping(convo.id, me, false), 4000);
   };
 
+  const isBlocked = blocked.includes(otherId);
+  const clearedAt = tsMillis(cleared[convo.id]);
+  const shown = messages.filter((m) => tsMillis(m.createdAt) > clearedAt);
   const typing = useMemo(() => isTyping(convo, otherId), [convo, otherId]);
 
   return (
@@ -220,14 +259,17 @@ function ChatThread({ convo, me }: { convo: Conversation; me: string }) {
         </Link>
         <button aria-label="Video call" onClick={() => toast("Video calls coming soon")} className="rounded-full p-2.5 hover:bg-secondary"><Video className="h-5 w-5" /></button>
         <button aria-label="Voice call" onClick={() => toast("Voice calls coming soon")} className="rounded-full p-2.5 hover:bg-secondary"><Phone className="h-5 w-5" /></button>
-        <ThreadMenu me={me} otherId={otherId} name={info?.displayName} onChanged={() => {}} />
+        <ThreadMenu me={me} cid={convo.id} otherId={otherId} name={info?.displayName} onChanged={() => {}} />
       </div>
-      <div className="chat-wallpaper flex-1 space-y-1 overflow-y-auto px-3 py-3">
-        {messages.map((m) => <Bubble key={m.id} m={m} mine={m.senderId === me} size={size} otherReadAt={convo.readAt?.[otherId]} />)}
-        {typing && <div className="w-16 rounded-lg rounded-tl-none bg-bubble-them px-3 py-2 text-center text-muted-foreground">•••</div>}
+      <div className={`${wallpaperClass(wall)} flex-1 space-y-1 overflow-y-auto px-3 py-3`}>
+        <p className="mx-auto mb-2 w-fit max-w-[85%] rounded-lg bg-chat-header px-3 py-1.5 text-center text-[11px] text-gold">🔒 Only you and this person can see these messages and files.</p>
+        {shown.map((m) => <Bubble key={m.id} m={m} mine={m.senderId === me} size={size} otherReadAt={convo.readAt?.[otherId]} />)}
+        {typing && !isBlocked && <div className="w-16 rounded-lg rounded-tl-none bg-bubble-them px-3 py-2 text-center text-muted-foreground">•••</div>}
         <div ref={bottom} />
       </div>
-      <ChatComposer cid={convo.id} me={me} onSend={(p) => sendMessage(convo, me, p)} onType={onType} />
+      {isBlocked ? (
+        <button onClick={() => setBlocked(blocked.filter((b) => b !== otherId))} className="flex items-center justify-center gap-2 bg-chat-header py-4 text-sm text-muted-foreground"><Ban className="h-4 w-4" />You blocked this contact. Tap to unblock.</button>
+      ) : <ChatComposer cid={convo.id} me={me} onSend={(p) => sendMessage(convo, me, p)} onType={onType} />}
     </>
   );
 }

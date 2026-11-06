@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Smile, Paperclip, Send, Mic, Image as ImageIcon, Camera, FileText, MapPin, X, Square, Download } from "lucide-react";
 import { toast } from "sonner";
 import { uploadChatFile, chatFileUrl } from "@/lib/chat";
+import { usePref } from "./ChatMenus";
 
 const EMOJIS = "😀 😂 🤣 😊 😍 🥰 😘 😎 🤩 🥳 😇 🙂 😉 😜 🤪 🤔 🤗 🙄 😏 😴 😢 😭 😡 🤯 😱 🥺 😅 😬 🙏 👏 👍 👎 👌 ✌️ 🤝 💪 🙌 👋 ❤️ 🧡 💛 💚 💙 💜 🖤 💔 💯 🔥 ✨ 🎉 🎶 💃 🕺 🌍 🇺🇬 ⚽ 🍌 🍗 🍺 ☕ 🌹 🌞 🌙 ⭐ 💰 📱 🎥 📸 🚀 😆 🤭 😋 😌 🤑 🥲 😤 😳 🤤".split(" ");
 
@@ -9,6 +10,7 @@ type Payload = { text?: string; imageUrl?: string; audioUrl?: string; fileUrl?: 
 
 export function ChatComposer({ cid, me, onSend, onType }: { cid: string; me: string; onSend: (p: Payload) => Promise<void>; onType: (v: string) => void }) {
   const [text, setText] = useState("");
+  const [enterSend] = usePref("enterSend", true);
   const [panel, setPanel] = useState<"none" | "emoji" | "attach">("none");
   const [busy, setBusy] = useState(false);
   const [rec, setRec] = useState<MediaRecorder | null>(null);
@@ -97,7 +99,7 @@ export function ChatComposer({ cid, me, onSend, onType }: { cid: string; me: str
         <form onSubmit={(e) => { e.preventDefault(); void sendText(); }} className="flex items-center gap-1.5 p-2">
           <div className="flex flex-1 items-center rounded-full bg-chat-header px-1">
             <button type="button" aria-label="Emoji" onClick={() => setPanel((p) => (p === "emoji" ? "none" : "emoji"))} className="p-2 text-muted-foreground"><Smile className="h-5 w-5" /></button>
-            <input ref={input} value={text} onChange={(e) => { setText(e.target.value); onType(e.target.value); }} onFocus={() => setPanel((p) => (p === "attach" ? "none" : p))} placeholder="Message…" className="min-w-0 flex-1 bg-transparent py-2.5 text-sm outline-none placeholder:text-muted-foreground" />
+            <input ref={input} value={text} onChange={(e) => { setText(e.target.value); onType(e.target.value); }} onKeyDown={(e) => { if (e.key === "Enter" && !enterSend) { e.preventDefault(); } }} onFocus={() => setPanel((p) => (p === "attach" ? "none" : p))} placeholder="Message…" className="min-w-0 flex-1 bg-transparent py-2.5 text-sm outline-none placeholder:text-muted-foreground" />
             <button type="button" aria-label="Attach" onClick={() => setPanel((p) => (p === "attach" ? "none" : "attach"))} className="p-2 text-muted-foreground"><Paperclip className="h-5 w-5" /></button>
           </div>
           {text.trim() ? (
