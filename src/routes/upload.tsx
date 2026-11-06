@@ -19,6 +19,7 @@ export const Route = createFileRoute("/upload")({
     { property: "og:type", content: "website" },
     { name: "twitter:card", content: "summary" },
   ] }),
+  validateSearch: (s: Record<string, unknown>): { sound?: string } => (typeof s.sound === "string" && s.sound ? { sound: s.sound.slice(0, 100) } : {}),
   component: UploadPage,
 });
 
@@ -35,7 +36,7 @@ function UploadPage() {
   const [stage, setStage] = useState<Stage>("pick");
   const [progress, setProgress] = useState(0);
   const previewRef = useRef<HTMLVideoElement>(null);
-  const [sound, setSound] = useState<string | null>(null);
+  const [sound, setSound] = useState<string | null>(Route.useSearch().sound ?? null);
   const [soundOpen, setSoundOpen] = useState(false);
   const [locIdx, setLocIdx] = useState(0);
   const [visibility, setVisibility] = useState<"public" | "friends" | "private">("public");
