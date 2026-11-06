@@ -209,7 +209,7 @@ function ChatThread({ convo, me }: { convo: Conversation; me: string }) {
 
   return (
     <>
-      <div className="flex items-center gap-2 border-b border-border px-2 py-2">
+      <div className="flex items-center gap-2 bg-chat-header px-2 py-2 shadow-sm">
         <Link to="/chat" className="rounded-full p-1.5 hover:bg-secondary md:hidden" aria-label="Back"><ArrowLeft className="h-6 w-6" /></Link>
         <Link to="/profile/$id" params={{ id: otherId }} className="flex min-w-0 flex-1 items-center gap-3">
           <Avatar url={info?.avatarUrl} name={info?.displayName} size={42} online={isOnline(convo, otherId)} />
@@ -222,9 +222,9 @@ function ChatThread({ convo, me }: { convo: Conversation; me: string }) {
         <button aria-label="Voice call" onClick={() => toast("Voice calls coming soon")} className="rounded-full p-2.5 hover:bg-secondary"><Phone className="h-5 w-5" /></button>
         <ThreadMenu me={me} otherId={otherId} name={info?.displayName} onChanged={() => {}} />
       </div>
-      <div className="flex-1 space-y-2 overflow-y-auto px-3 py-4">
+      <div className="chat-wallpaper flex-1 space-y-1 overflow-y-auto px-3 py-3">
         {messages.map((m) => <Bubble key={m.id} m={m} mine={m.senderId === me} size={size} otherReadAt={convo.readAt?.[otherId]} />)}
-        {typing && <div className="w-16 rounded-2xl bg-bubble-them px-3 py-2 text-center text-muted-foreground">•••</div>}
+        {typing && <div className="w-16 rounded-lg rounded-tl-none bg-bubble-them px-3 py-2 text-center text-muted-foreground">•••</div>}
         <div ref={bottom} />
       </div>
       <ChatComposer cid={convo.id} me={me} onSend={(p) => sendMessage(convo, me, p)} onType={onType} />
@@ -237,7 +237,7 @@ function Bubble({ m, mine, size, otherReadAt }: { m: Message; mine: boolean; siz
   const [playing, setPlaying] = useState(false);
   return (
     <div className={`flex ${mine ? "justify-end" : "justify-start"}`}>
-      <div className={`max-w-[75%] overflow-hidden rounded-2xl ${mine ? "rounded-br-sm bg-bubble-me text-primary-foreground" : "rounded-bl-sm bg-bubble-them"}`}>
+      <div className={`max-w-[80%] overflow-hidden rounded-lg shadow-sm ${mine ? "rounded-tr-none bg-bubble-me text-foreground" : "rounded-tl-none bg-bubble-them text-foreground"}`}>
         {m.videoShareId && (
           <div className="relative aspect-[9/16] w-48 bg-card">
             {playing ? (
@@ -254,10 +254,10 @@ function Bubble({ m, mine, size, otherReadAt }: { m: Message; mine: boolean; siz
           </div>
         )}
         <MediaContent imageUrl={m.imageUrl} audioUrl={m.audioUrl} fileUrl={m.fileUrl} fileName={m.fileName} />
-        {m.text && <p className={`whitespace-pre-wrap break-words px-3 py-2 ${textSizeClass(size)}`}>{m.text}</p>}
-        <p className={`flex items-center justify-end gap-1 px-3 pb-1 text-[10px] ${mine ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
+        {m.text && <p className={`whitespace-pre-wrap break-words px-2.5 pt-1.5 ${textSizeClass(size)}`}>{m.text}</p>}
+        <p className={`flex items-center justify-end gap-1 px-2 pb-1 text-[11px] text-chat-meta`}>
           {formatChatTime(m.createdAt)}
-          {mine && (read ? <CheckCheck className="h-3.5 w-3.5 text-online" /> : <Check className="h-3.5 w-3.5" />)}
+          {mine && (read ? <CheckCheck className="h-4 w-4 text-tick-read" /> : <Check className="h-4 w-4" />)}
         </p>
       </div>
     </div>
