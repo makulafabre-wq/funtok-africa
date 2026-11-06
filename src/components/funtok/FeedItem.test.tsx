@@ -6,7 +6,7 @@ import { FeedItem } from "./FeedItem";
 const mocks = vi.hoisted(() => ({ insert: vi.fn(), remove: vi.fn(), mute: vi.fn(), user: { id: "viewer" } }));
 vi.mock("@/hooks/use-auth", () => ({ useAuth: () => ({ user: mocks.user }) }));
 vi.mock("@/hooks/use-follow", () => ({ useFollow: () => ({ following: false, ownProfile: false, pending: false, toggle: vi.fn() }) }));
-vi.mock("@tanstack/react-router", () => ({ Link: ({ children }: { children: React.ReactNode }) => <span>{children}</span> }));
+vi.mock("@tanstack/react-router", () => ({ Link: ({ children }: { children: React.ReactNode }) => <span>{children}</span>, useNavigate: () => vi.fn() }));
 vi.mock("@/integrations/supabase/client", () => ({ supabase: { from: () => ({
   select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null }) }) }) }),
   insert: mocks.insert,
