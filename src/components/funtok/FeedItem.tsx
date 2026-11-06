@@ -1,5 +1,8 @@
+import type React from "react";
 import { useEffect, useRef, useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
+
+const BURST = [{ dx: -70, r: -25 }, { dx: 60, r: 20 }, { dx: -30, r: -10 }, { dx: 35, r: 12 }, { dx: -90, r: -35 }, { dx: 85, r: 30 }];
 import { Heart, MessageCircleMore, Share2, Send, Music2, Flame, Volume2, VolumeX, Plus, Download, Link2, UserRound, MoreHorizontal } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,7 +24,11 @@ export function FeedItem({ video, active, prebuffer = false, muted, onToggleMute
   const follow = useFollow(video.user_id, user?.id);
   const likeBusy = useRef(false);
   const heartTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [heartBurst, setHeartBurst] = useState(false);
+  const [heartBurst, setHeartBurst] = useState(0);
+  const [soundSheet, setSoundSheet] = useState(false);
+  const [shareSheet, setShareSheet] = useState(false);
+  const navigate = useNavigate();
+  const soundName = `original sound · ${video.profiles?.username ?? "funtok"}`;
   useEffect(() => () => { if (heartTimer.current) clearTimeout(heartTimer.current); }, []);
   const [liked, setLiked] = useState(false);
   const [likes, setLikes] = useState(video.likes_count);
@@ -60,9 +67,9 @@ export function FeedItem({ video, active, prebuffer = false, muted, onToggleMute
   };
   const doubleTapLike = () => {
     if (!user) { toast("Sign in to like videos"); return; }
-    setHeartBurst(true);
+    setHeartBurst((n) => n + 1);
     if (heartTimer.current) clearTimeout(heartTimer.current);
-    heartTimer.current = setTimeout(() => setHeartBurst(false), 650);
+    heartTimer.current = setTimeout(() => setHeartBurst(0), 1300);
     void toggleLike(true);
   };
 
@@ -86,7 +93,10 @@ export function FeedItem({ video, active, prebuffer = false, muted, onToggleMute
     <div className="relative h-full w-full overflow-hidden bg-background">
       <VideoPlayer src={playlistUrl(video.bunny_video_id)} poster={video.thumbnail_url || thumbUrl(video.bunny_video_id, 720)} active={active && !menu} prebuffer={prebuffer} muted={muted} tapToPause onLongPress={() => setMenu(true)} onDoubleTap={doubleTapLike} onWatch={onWatch} />
       <div className="pointer-events-none absolute inset-0 bg-scrim" />
-      {heartBurst && <div className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden="true"><Heart className="h-24 w-24 fill-primary text-primary motion-safe:animate-heart" /></div>}
+      {heartBurst && <div key={heartBurst} className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden="true">
+        <Heart className="h-24 w-24 fill-primary text-primary motion-safe:animate-heart" />
+        {BURST.map((b, i) => <Heart key={i} style={{ "--dx": `${b.dx}px`, "--r": `${b.r}deg`, animationDelay: `${i * 60}ms` } as React.CSSProperties} className="absolute h-10 w-10 fill-primary text-primary opacity-0 motion-safe:animate-heart-float" />)}
+      </div>}
 
       <button onClick={onToggleMute} className="absolute left-3 top-24 rounded-full bg-overlay p-2" aria-label={muted ? "Unmute" : "Mute"}>
         {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
@@ -112,11 +122,14 @@ export function FeedItem({ video, active, prebuffer = false, muted, onToggleMute
         <button onClick={() => setComments(true)} className={btn} aria-label="Comments">
           <MessageCircleMore className="h-8 w-8" /> {formatCount(video.comments_count)}
         </button>
-        <button onClick={share} className={btn} aria-label="Share">
+        <button onClick={() => setShareSheet(true)} className={btn} aria-label="Share">
           <Share2 className="h-7 w-7" /> {formatCount(video.shares_count)}
         </button>
         <button onClick={() => setSend(true)} className={btn} aria-label="Send to chat">
           <Send className="h-7 w-7" /> Chat
+        </button>
+        <button onClick={() => setSoundSheet(true)} aria-label="View sound" className="mt-1 flex h-11 w-11 items-center justify-center rounded-full border-4 border-secondary bg-card animate-spin-slow">
+          <Avatar url={p?.avatar_url} name={p?.username} size={26} />
         </button>
       </div>
 
@@ -126,11 +139,35 @@ export function FeedItem({ video, active, prebuffer = false, muted, onToggleMute
         )}
         <Link to="/profile/$id" params={{ id: video.user_id }} className="block font-bold">@{p?.username ?? "funtok"}</Link>
         <Caption text={video.caption} />
-        <p className="flex items-center gap-2 text-xs"><Music2 className="h-3.5 w-3.5 animate-spin-slow" /> original sound · {p?.username ?? "funtok"}{video.location ? ` · ${video.location}` : ""}</p>
+        <p onClick={() => setSoundSheet(true)} className="pointer-events-auto flex cursor-pointer items-center gap-2 text-xs"><Music2 className="h-3.5 w-3.5 animate-spin-slow" /> original sound · {p?.username ?? "funtok"}{video.location ? ` · ${video.location}` : ""}</p>
       </div>
 
       <CommentsSheet videoId={video.id} open={comments} onOpenChange={setComments} allowComments={video.allow_comments} />
       <SendToChatSheet open={send} onOpenChange={setSend} bunnyVideoId={video.bunny_video_id} videoRowId={video.id} />
+      <Sheet open={soundSheet} onOpenChange={setSoundSheet}>
+        <SheetContent side="bottom" className="rounded-t-2xl" aria-describedby={undefined}>
+          <SheetTitle className="sr-only">Sound</SheetTitle>
+          <div className="mx-auto flex max-w-lg items-center gap-4">
+            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full border-8 border-secondary bg-card animate-spin-slow"><Avatar url={p?.avatar_url} name={p?.username} size={40} /></div>
+            <div className="min-w-0">
+              <p className="flex items-center gap-1 font-bold"><Music2 className="h-4 w-4 text-primary" /> <span className="truncate">{soundName}</span></p>
+              <p className="text-sm text-muted-foreground">@{p?.username ?? "funtok"}{video.location ? ` · ${video.location}` : ""}</p>
+            </div>
+          </div>
+          <Button className="mx-auto mt-5 flex w-full max-w-lg" onClick={() => { setSoundSheet(false); void navigate({ to: "/upload", search: { sound: soundName } }); }}><Music2 />Use this sound</Button>
+        </SheetContent>
+      </Sheet>
+      <Sheet open={shareSheet} onOpenChange={setShareSheet}>
+        <SheetContent side="bottom" className="rounded-t-2xl" aria-describedby={undefined}>
+          <SheetTitle>Share to</SheetTitle>
+          <div className="mx-auto mt-4 grid max-w-lg grid-cols-2 gap-3">
+            <Button variant="secondary" onClick={() => { setShareSheet(false); setSend(true); }}><Send />Funtok chats</Button>
+            <Button variant="secondary" onClick={() => { const url = `${window.location.origin}/video/${video.id}`; window.open(`https://wa.me/?text=${encodeURIComponent(`${video.caption ? video.caption + " " : ""}${url}`)}`, "_blank", "noopener"); void supabase.rpc("record_share", { _video_id: video.id }); setShareSheet(false); }}><MessageCircleMore />WhatsApp</Button>
+            <Button variant="secondary" onClick={() => { void navigator.clipboard.writeText(`${window.location.origin}/video/${video.id}`).then(() => toast.success("Link copied")).catch(() => toast.error("Couldn't copy link")); }}><Link2 />Copy link</Button>
+            <Button variant="secondary" onClick={() => { setShareSheet(false); void share(); }}><Share2 />More…</Button>
+          </div>
+        </SheetContent>
+      </Sheet>
       <Sheet open={menu} onOpenChange={setMenu}>
         <SheetContent side="bottom" className="max-h-[80dvh] overflow-y-auto" aria-describedby={undefined}>
           <SheetTitle>Video options</SheetTitle>
