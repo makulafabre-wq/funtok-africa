@@ -69,7 +69,7 @@ export function ChatComposer({ cid, me, onSend, onType }: { cid: string; me: str
   const stopRec = (cancel = false) => { if (!rec) return; (rec as MediaRecorder & { cancelled?: boolean }).cancelled = cancel; rec.stop(); setRec(null); };
 
   return (
-    <div className="border-t border-border pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+    <div className="bg-chat-wall pb-[max(0.5rem,env(safe-area-inset-bottom))]">
       {panel === "emoji" && (
         <div className="grid max-h-52 grid-cols-8 gap-1 overflow-y-auto p-2 text-2xl">
           {EMOJIS.map((e) => <button key={e} type="button" onClick={() => { setText((t) => t + e); input.current?.focus(); }} className="rounded-lg p-1 hover:bg-secondary">{e}</button>)}
@@ -91,19 +91,19 @@ export function ChatComposer({ cid, me, onSend, onType }: { cid: string; me: str
         <div className="flex items-center gap-3 p-2">
           <button type="button" onClick={() => stopRec(true)} aria-label="Cancel recording" className="rounded-full p-2.5 hover:bg-secondary"><X className="h-5 w-5" /></button>
           <p className="flex-1 text-sm"><span className="mr-2 inline-block h-2.5 w-2.5 animate-pulse rounded-full bg-primary" />Recording {Math.floor(secs / 60)}:{String(secs % 60).padStart(2, "0")}</p>
-          <button type="button" onClick={() => stopRec(false)} aria-label="Send voice note" className="rounded-full bg-primary p-3 text-primary-foreground"><Square className="h-4 w-4" /></button>
+          <button type="button" onClick={() => stopRec(false)} aria-label="Send voice note" className="rounded-full bg-bubble-me p-3 text-foreground"><Square className="h-4 w-4" /></button>
         </div>
       ) : (
         <form onSubmit={(e) => { e.preventDefault(); void sendText(); }} className="flex items-center gap-1.5 p-2">
-          <div className="flex flex-1 items-center rounded-full bg-secondary px-1">
+          <div className="flex flex-1 items-center rounded-full bg-chat-header px-1">
             <button type="button" aria-label="Emoji" onClick={() => setPanel((p) => (p === "emoji" ? "none" : "emoji"))} className="p-2 text-muted-foreground"><Smile className="h-5 w-5" /></button>
             <input ref={input} value={text} onChange={(e) => { setText(e.target.value); onType(e.target.value); }} onFocus={() => setPanel((p) => (p === "attach" ? "none" : p))} placeholder="Message…" className="min-w-0 flex-1 bg-transparent py-2.5 text-sm outline-none placeholder:text-muted-foreground" />
             <button type="button" aria-label="Attach" onClick={() => setPanel((p) => (p === "attach" ? "none" : "attach"))} className="p-2 text-muted-foreground"><Paperclip className="h-5 w-5" /></button>
           </div>
           {text.trim() ? (
-            <button className="rounded-full bg-primary p-3 text-primary-foreground" aria-label="Send"><Send className="h-4 w-4" /></button>
+            <button className="rounded-full bg-bubble-me p-3 text-foreground" aria-label="Send"><Send className="h-4 w-4" /></button>
           ) : (
-            <button type="button" onClick={startRec} className="rounded-full bg-primary p-3 text-primary-foreground" aria-label="Record voice note"><Mic className="h-4 w-4" /></button>
+            <button type="button" onClick={startRec} className="rounded-full bg-bubble-me p-3 text-foreground" aria-label="Record voice note"><Mic className="h-4 w-4" /></button>
           )}
         </form>
       )}
