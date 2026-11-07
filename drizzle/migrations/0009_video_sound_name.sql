@@ -1,0 +1,1 @@
+ALTER TABLE public.videos ADD COLUMN IF NOT EXISTS sound_name text; COMMENT ON COLUMN public.videos.sound_name IS 'Display name for audio mixed into the uploaded video, or its original sound.';

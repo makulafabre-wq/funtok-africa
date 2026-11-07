@@ -602,6 +602,7 @@ export type Database = {
           location: string | null
           saves_count: number
           shares_count: number
+          sound_name: string | null
           thumbnail_url: string | null
           trending_score: number
           user_id: string
@@ -627,6 +628,7 @@ export type Database = {
           location?: string | null
           saves_count?: number
           shares_count?: number
+          sound_name?: string | null
           thumbnail_url?: string | null
           trending_score?: number
           user_id: string
@@ -652,6 +654,7 @@ export type Database = {
           location?: string | null
           saves_count?: number
           shares_count?: number
+          sound_name?: string | null
           thumbnail_url?: string | null
           trending_score?: number
           user_id?: string
