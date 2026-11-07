@@ -14,3 +14,4 @@
 - Visited feed tabs remain mounted with inactive players paused, five-minute query freshness and thirty-minute cache retention; players share one lazy HLS import and only buffer the active and next entry to limit bandwidth.
 - Feed and profile follow controls share the relationship query hook so changes stay synchronized and refresh follower counts and the Following feed.
 - Feed video gestures distinguish delayed single taps, double taps, and movement-cancelled long presses; downloads prepare a video Blob before a separate save click to preserve mobile user activation.
+- Chat presence uses caller-scoped expiring heartbeat timestamps while Chat Side is visible; the online/typing preference clears shared presence, and typing writes are throttled independently from presence.

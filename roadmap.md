@@ -1,4 +1,6 @@
 # Funtok roadmap
+- [x] WhatsApp-style online, last-seen, and typing indicators; expiry tests and signed-in presence saving verified
+- [ ] Post page changes — waiting for the specific change requested
 - [x] Single-tap pause/resume and long-press video menu; phone gestures and controlled MP4 download verified
 - [ ] Real video downloads — Bunny CDN currently blocks the MP4; menu shows an error until Bunny access is restored
 - [x] Double-tap feed likes, avatar follow badges, and creator profile Follow button; signed-in like and follow/unfollow verified
