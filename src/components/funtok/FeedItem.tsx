@@ -28,7 +28,7 @@ export function FeedItem({ video, active, prebuffer = false, muted, onToggleMute
   const [soundSheet, setSoundSheet] = useState(false);
   const [shareSheet, setShareSheet] = useState(false);
   const navigate = useNavigate();
-  const soundName = `original sound · ${video.profiles?.username ?? "funtok"}`;
+  const soundName = video.sound_name && video.sound_name !== "Original sound" ? video.sound_name : `original sound · ${video.profiles?.username ?? "funtok"}`;
   useEffect(() => () => { if (heartTimer.current) clearTimeout(heartTimer.current); }, []);
   const [liked, setLiked] = useState(false);
   const [likes, setLikes] = useState(video.likes_count);
@@ -139,7 +139,7 @@ export function FeedItem({ video, active, prebuffer = false, muted, onToggleMute
         )}
         <Link to="/profile/$id" params={{ id: video.user_id }} className="block font-bold">@{p?.username ?? "funtok"}</Link>
         <Caption text={video.caption} />
-        <p onClick={() => setSoundSheet(true)} className="pointer-events-auto flex cursor-pointer items-center gap-2 text-xs"><Music2 className="h-3.5 w-3.5 animate-spin-slow" /> original sound · {p?.username ?? "funtok"}{video.location ? ` · ${video.location}` : ""}</p>
+        <p onClick={() => setSoundSheet(true)} className="pointer-events-auto flex cursor-pointer items-center gap-2 text-xs"><Music2 className="h-3.5 w-3.5 animate-spin-slow" /> {soundName}{video.location ? ` · ${video.location}` : ""}</p>
       </div>
 
       <CommentsSheet videoId={video.id} open={comments} onOpenChange={setComments} allowComments={video.allow_comments} />
