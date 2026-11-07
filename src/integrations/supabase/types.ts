@@ -474,6 +474,8 @@ export type Database = {
         Row: {
           avatar_url: string | null
           bio: string | null
+          chat_last_seen_at: string | null
+          chat_online_until: string | null
           created_at: string
           display_name: string | null
           followers_count: number
@@ -485,6 +487,8 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           bio?: string | null
+          chat_last_seen_at?: string | null
+          chat_online_until?: string | null
           created_at?: string
           display_name?: string | null
           followers_count?: number
@@ -496,6 +500,8 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           bio?: string | null
+          chat_last_seen_at?: string | null
+          chat_online_until?: string | null
           created_at?: string
           display_name?: string | null
           followers_count?: number
@@ -692,6 +698,10 @@ export type Database = {
       set_typing: { Args: { _cid: string; _on: boolean }; Returns: undefined }
       start_conversation: { Args: { _other: string }; Returns: string }
       track_ad: { Args: { _ad_id: string; _kind: string }; Returns: undefined }
+      update_chat_presence: {
+        Args: { _online: boolean; _share: boolean }
+        Returns: undefined
+      }
       vote_live: { Args: { _room: string; _side: string }; Returns: undefined }
     }
     Enums: {
