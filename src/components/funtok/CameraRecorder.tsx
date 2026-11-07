@@ -1,17 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { FlipHorizontal2, Loader2, Square, Video, X } from "lucide-react";
+import { FlipHorizontal2, Loader2, Square, Video, X, Timer, Smile, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { VIDEO_FILTERS, videoFilter } from "@/lib/video-edit";
 
-const FILTERS = [
-  { name: "Original", css: "none" },
-  { name: "Warm", css: "sepia(0.3) saturate(1.3)" },
-  { name: "Cool", css: "hue-rotate(-15deg) saturate(1.2)" },
-  { name: "B&W", css: "grayscale(1)" },
-  { name: "Vivid", css: "saturate(1.8) contrast(1.1)" },
-];
-
-export function CameraRecorder({ onCapture, onClose }: { onCapture: (file: File) => void; onClose: () => void }) {
+export function CameraRecorder({ onCapture, onClose, initialTimer = 0 }: { onCapture: (file: File) => void; onClose: () => void; initialTimer?: number }) {
   const video = useRef<HTMLVideoElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const stream = useRef<MediaStream | null>(null);
@@ -27,11 +20,19 @@ export function CameraRecorder({ onCapture, onClose }: { onCapture: (file: File)
   const [finishing, setFinishing] = useState(false);
   const [seconds, setSeconds] = useState(0);
   const [error, setError] = useState("");
+  const [beauty, setBeauty] = useState(false);
+  const [effect, setEffect] = useState(false);
+  const [delay, setDelay] = useState(initialTimer);
+  const [countdown, setCountdown] = useState(0);
+  const countdownTimer = useRef<ReturnType<typeof setInterval>>(undefined);
+  const css = videoFilter(filter, beauty, effect);
+  useEffect(() => { filterRef.current = css; }, [css]);
 
   useEffect(() => {
     active.current = true;
     return () => {
       active.current = false;
+      clearInterval(countdownTimer.current);
       if (recorder.current?.state === "recording") recorder.current.stop();
       cancelAnimationFrame(frame.current);
       stream.current?.getTracks().forEach((track) => track.stop());
@@ -127,22 +128,35 @@ export function CameraRecorder({ onCapture, onClose }: { onCapture: (file: File)
 
   return (
     <div role="dialog" aria-label="Record a video" className="fixed inset-0 z-50 flex flex-col bg-background">
-      <video ref={video} muted playsInline className="absolute inset-0 h-full w-full object-cover" style={{ filter }} />
+      <video ref={video} muted playsInline className="absolute inset-0 h-full w-full object-cover" style={{ filter: css }} />
       <canvas ref={canvas} className="hidden" />
       <div className="relative flex items-center justify-between bg-overlay p-3">
         <Button variant="ghost" size="icon" aria-label="Cancel recording" onClick={onClose}><X /></Button>
         <span className="text-sm font-semibold tabular-nums">{recording ? `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}` : "Camera"}</span>
-        <Button variant="ghost" size="icon" aria-label="Switch camera" disabled={recording || finishing || !ready} onClick={() => setFacing((s) => s === "user" ? "environment" : "user")}><FlipHorizontal2 /></Button>
+        <Button variant="ghost" size="icon" aria-label="Switch camera" disabled={recording || finishing || countdown > 0 || !ready} onClick={() => setFacing((s) => s === "user" ? "environment" : "user")}><FlipHorizontal2 /></Button>
       </div>
       {error ? <div role="alert" className="relative m-auto max-w-sm bg-overlay p-5 text-center text-sm">{error}</div> : !ready ? <Loader2 className="relative m-auto h-8 w-8 animate-spin" /> : <div className="flex-1" />}
+      {countdown > 0 && <div role="status" className="pointer-events-none absolute inset-0 flex items-center justify-center text-6xl font-bold">{countdown}</div>}
       <div className="relative space-y-4 bg-overlay px-3 pb-6 pt-4">
         <div aria-label="Camera filters" className="flex flex-wrap justify-center gap-2">
-          {FILTERS.map((f) => <Button key={f.name} size="sm" variant={filter === f.css ? "default" : "secondary"} aria-pressed={filter === f.css} disabled={finishing} onClick={() => { filterRef.current = f.css; setFilter(f.css); }}>{f.name}</Button>)}
+          {VIDEO_FILTERS.map((f) => <Button key={f.name} size="sm" variant={filter === f.css ? "default" : "secondary"} aria-pressed={filter === f.css} disabled={finishing} onClick={() => setFilter(f.css)}>{f.name}</Button>)}
+        </div>
+        <div className="flex justify-center gap-2">
+          <Button size="sm" variant={beauty ? "default" : "secondary"} aria-pressed={beauty} onClick={() => setBeauty((v) => !v)}><Smile />Beauty</Button>
+          <Button size="sm" variant={effect ? "default" : "secondary"} aria-pressed={effect} onClick={() => setEffect((v) => !v)}><Wand2 />Effects</Button>
+          <Button size="sm" variant="secondary" disabled={recording || countdown > 0} onClick={() => setDelay((v) => v === 0 ? 3 : v === 3 ? 10 : 0)}><Timer />{delay ? `${delay}s` : "Timer off"}</Button>
         </div>
         <div className="flex justify-center">
-          <Button size="lg" disabled={!ready || !!error || finishing} onClick={() => {
+          <Button size="lg" disabled={!ready || !!error || finishing || countdown > 0} onClick={() => {
             if (recording && recorder.current?.state === "recording") { setFinishing(true); recorder.current.stop(); }
-            else start();
+            else if (delay) {
+              let remaining = delay;
+              setCountdown(remaining);
+              countdownTimer.current = setInterval(() => {
+                remaining -= 1; setCountdown(remaining);
+                if (!remaining) { clearInterval(countdownTimer.current); start(); }
+              }, 1000);
+            } else start();
           }}>{finishing ? <Loader2 className="animate-spin" /> : recording ? <Square /> : <Video />}{finishing ? "Preparing video…" : recording ? "Stop recording" : "Record video"}</Button>
         </div>
       </div>
