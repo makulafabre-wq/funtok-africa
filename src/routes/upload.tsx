@@ -159,12 +159,12 @@ function UploadPage() {
         <Button variant="secondary" disabled={locked} className="mx-auto min-w-0 max-w-[70%] rounded-full" onClick={()=>setSoundOpen(true)}><Music2 /><span className="truncate">{music ? sound : "Add Sound"}</span></Button>
         <span className="w-9 shrink-0" />
       </header>
-      <section className="relative min-h-24 flex-1">
+      <section className={`relative min-h-24 flex-1 ${preview ? "pointer-events-none" : ""}`}>
         {!preview ? <div className="flex h-full flex-col items-center justify-center gap-3"><Button onClick={()=>setCameraOpen(true)}><Camera />Open camera</Button><Button variant="secondary" onClick={()=>fileInput.current?.click()}><UploadCloud />Choose a video</Button></div> : <>
-          <div className="absolute right-2 top-2 flex max-h-full flex-col gap-1 overflow-y-auto bg-overlay p-1.5">
+          <div className="pointer-events-auto absolute right-2 top-2 flex max-h-full flex-col gap-1 overflow-y-auto bg-overlay p-1.5">
             {tools.map((tool)=><Button variant="ghost" key={tool.label} disabled={locked} aria-label={tool.label} aria-pressed={tool.on} onClick={tool.act} className={`h-11 flex-col gap-0.5 px-2 text-[10px] ${tool.on ? "text-primary" : ""}`}><tool.icon />{tool.label}</Button>)}
           </div>
-          <Button variant="secondary" size="sm" className="absolute bottom-2 left-3" disabled={locked} onClick={()=>fileInput.current?.click()}><UploadCloud />Replace</Button>
+          <Button variant="secondary" size="sm" className="pointer-events-auto absolute bottom-2 left-3" disabled={locked} onClick={()=>fileInput.current?.click()}><UploadCloud />Replace</Button>
         </>}
       </section>
       <section className="relative flex max-h-[55dvh] shrink-0 flex-col border-t border-border bg-overlay backdrop-blur-md">
