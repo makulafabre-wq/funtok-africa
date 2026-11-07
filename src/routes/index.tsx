@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Flame, Search, Camera, Rocket } from "lucide-react";
+import { Flame, Search, Camera, Rocket, Heart } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -69,6 +69,11 @@ function FunSide() {
 
   return (
     <div className="flex h-[100dvh] flex-col bg-background" {...swipe}>
+      <div className="flex shrink-0 items-center justify-center gap-2 bg-primary px-4 py-2 text-center text-sm font-semibold text-primary-foreground">
+        <Heart className="h-4 w-4 shrink-0 fill-current" aria-hidden="true" />
+        <span>I love u angel</span>
+        <Heart className="h-4 w-4 shrink-0 fill-current" aria-hidden="true" />
+      </div>
       <div className="relative flex-1 overflow-hidden">
         {mountedTabs.map((panel) => <div key={panel} className="absolute inset-0" hidden={panel !== tab}>
           {panel === "fire" ? (panel === tab ? <FireHub /> : null) : <FeedPanel tab={panel} active={panel === tab} userId={user?.id} sharedVideo={v} adSetup={ads.data} />}
