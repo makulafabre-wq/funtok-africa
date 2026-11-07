@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Search, Video, Play, MoreVertical, Phone, UserPlus, Check, CheckCheck, Archive, Ban } from "lucide-react";
 import { toast } from "sonner";
@@ -18,6 +18,7 @@ import { BannerAd } from "@/components/funtok/Ads";
 import { ChatComposer, MediaContent } from "@/components/funtok/ChatComposer";
 import { VideoPlayer } from "@/components/funtok/VideoPlayer";
 import { ChatMainMenu, ThreadMenu, usePref, textSizeClass, wallpaperClass, playPing } from "@/components/funtok/ChatMenus";
+import { chatStatus, isChatOnline, isChatTyping } from "@/lib/chat-status";
 
 export const Route = createFileRoute("/chat")({
   validateSearch: (s: Record<string, unknown>): { user?: string | undefined } => ({ user: typeof s["user"] === "string" ? s["user"] : undefined }),
@@ -39,6 +40,22 @@ function ChatSide() {
   const navigate = useNavigate();
   const { user, ready, profile } = useAuth();
   const { conversations } = useConversations(user?.id);
+  const [shareStatus] = usePref("showOnline", true);
+  useEffect(() => {
+    if (!user) return;
+    const update = () => { void supabase.rpc("update_chat_presence", { _online: document.visibilityState === "visible", _share: shareStatus }); };
+    update();
+    const timer = setInterval(update, 45000);
+    document.addEventListener("visibilitychange", update);
+    const leave = () => { void supabase.rpc("update_chat_presence", { _online: false, _share: shareStatus }); };
+    window.addEventListener("pagehide", leave);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", update);
+      window.removeEventListener("pagehide", leave);
+      leave();
+    };
+  }, [user?.id, shareStatus]);
   const [search, setSearch] = useState("");
   const [myPhone, setMyPhone] = useState<string | null | undefined>(undefined);
   const [adding, setAdding] = useState(false);
@@ -162,13 +179,11 @@ function ChatSide() {
 }
 
 function isTyping(c: Conversation, who: string) {
-  const t = c.typing?.[who];
-  return !!t && Date.now() - tsMillis(t) < 6000;
+  return isChatTyping(c.typing?.[who]);
 }
 
 function isOnline(c: Conversation, who: string) {
-  const t = c.typing?.[who];
-  return !!t && Date.now() - tsMillis(t) < 5 * 60 * 1000;
+  return isChatOnline(c.presence?.[who]);
 }
 
 function PhoneSetup({ me, onDone }: { me: string; onDone: (p: string) => void }) {
@@ -227,6 +242,8 @@ function ChatThread({ convo, me }: { convo: Conversation; me: string }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const bottom = useRef<HTMLDivElement>(null);
   const typingTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const lastTyping = useRef(0);
+  const [now, setNow] = useState(0);
   const otherId = convo.participants.find((p) => p !== me) ?? me;
   const info = convo.participantInfo?.[otherId];
 
@@ -234,27 +251,51 @@ function ChatThread({ convo, me }: { convo: Conversation; me: string }) {
   // Always mark as read when viewing so the unread badge clears immediately
   useEffect(() => { markRead(convo.id, me); bottom.current?.scrollIntoView({ behavior: "smooth" }); }, [messages.length, convo.id, me]);
 
-  const onType = (_v: string) => {
-    if (!showOnline) return;
-    setTyping(convo.id, me, true);
+  useEffect(() => {
+    const clock = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(clock);
+  }, []);
+  useEffect(() => {
+    lastTyping.current = 0;
+    if (!showOnline) setTyping(convo.id, me, false);
+    return () => {
+      clearTimeout(typingTimer.current);
+      setTyping(convo.id, me, false);
+    };
+  }, [convo.id, me, showOnline]);
+  const onType = (value: string) => {
     clearTimeout(typingTimer.current);
-    typingTimer.current = setTimeout(() => setTyping(convo.id, me, false), 4000);
+    if (!showOnline || !value.trim()) {
+      if (lastTyping.current) setTyping(convo.id, me, false);
+      lastTyping.current = 0;
+      return;
+    }
+    if (Date.now() - lastTyping.current >= 2000) {
+      setTyping(convo.id, me, true);
+      lastTyping.current = Date.now();
+    }
+    typingTimer.current = setTimeout(() => {
+      setTyping(convo.id, me, false);
+      lastTyping.current = 0;
+    }, 4000);
   };
 
   const isBlocked = blocked.includes(otherId);
   const clearedAt = tsMillis(cleared[convo.id]);
   const shown = messages.filter((m) => tsMillis(m.createdAt) > clearedAt);
-  const typing = useMemo(() => isTyping(convo, otherId), [convo, otherId]);
+  const typing = !isBlocked && isChatTyping(convo.typing?.[otherId], now || Date.now());
+  const online = !isBlocked && isChatOnline(convo.presence?.[otherId], now || Date.now());
+  const status = isBlocked ? "" : chatStatus(convo.presence?.[otherId], typing, now || Date.now());
 
   return (
     <>
       <div className="flex items-center gap-2 bg-chat-header px-2 py-2 shadow-sm">
         <Link to="/chat" className="rounded-full p-1.5 hover:bg-secondary md:hidden" aria-label="Back"><ArrowLeft className="h-6 w-6" /></Link>
         <Link to="/profile/$id" params={{ id: otherId }} className="flex min-w-0 flex-1 items-center gap-3">
-          <Avatar url={info?.avatarUrl} name={info?.displayName} size={42} online={isOnline(convo, otherId)} />
+          <Avatar url={info?.avatarUrl} name={info?.displayName} size={42} online={online} />
           <div className="min-w-0">
             <p className="truncate font-semibold leading-tight">{info?.displayName}</p>
-            <p className={`text-xs ${typing ? "text-online" : "text-muted-foreground"}`}>{typing ? "typing…" : isOnline(convo, otherId) ? "online" : `@${info?.username ?? ""}`}</p>
+            <p aria-live="polite" className={`min-h-4 truncate text-xs ${typing || online ? "text-online" : "text-muted-foreground"}`}>{status}</p>
           </div>
         </Link>
         <button aria-label="Video call" onClick={() => toast("Video calls coming soon")} className="rounded-full p-2.5 hover:bg-secondary"><Video className="h-5 w-5" /></button>

@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import type { ChatPresence } from "./chat-status";
 
 export type PersonInfo = { username: string; displayName: string; avatarUrl: string | null };
 export type Conversation = {
@@ -10,6 +11,7 @@ export type Conversation = {
   unread?: Record<string, number>;
   typing?: Record<string, string | null>;
   readAt?: Record<string, string | null>;
+  presence?: Record<string, ChatPresence>;
 };
 export type Message = {
   id: string;
@@ -96,7 +98,8 @@ async function loadConversations(me: string): Promise<Conversation[]> {
     listContacts(me),
   ]);
   const userIds = [...new Set((members ?? []).map((m) => m.user_id))];
-  const { data: profiles } = await supabase.from("profiles").select("id,username,display_name,avatar_url").in("id", userIds);
+  const { data: profiles } = await supabase.from("profiles").select("id,username,display_name,avatar_url,chat_last_seen_at,chat_online_until").in("id", userIds);
+  const presence = Object.fromEntries((profiles ?? []).map((p) => [p.id, { lastSeenAt: p.chat_last_seen_at, onlineUntil: p.chat_online_until }]));
   const names = new Map(contacts.map((c) => [c.contact_user_id, c]));
   const info: Record<string, PersonInfo> = {};
   for (const p of profiles ?? []) {
@@ -108,7 +111,8 @@ async function loadConversations(me: string): Promise<Conversation[]> {
     return {
       id: c.id,
       participants: ms.map((m) => m.user_id),
-      participantInfo: Object.fromEntries(ms.map((m) => [m.user_id, info[m.user_id]!]).filter(([, v]) => v)),
+      participantInfo: Object.fromEntries(ms.map((m) => [m.user_id, info[m.user_id]]).filter(([, v]) => v)),
+      presence: Object.fromEntries(ms.map((m) => [m.user_id, presence[m.user_id]]).filter(([, v]) => v)),
       lastMessage: c.last_message,
       lastAt: c.last_at,
       unread: Object.fromEntries(ms.map((m) => [m.user_id, m.unread])),

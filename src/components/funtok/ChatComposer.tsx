@@ -38,6 +38,7 @@ export function ChatComposer({ cid, me, onSend, onType }: { cid: string; me: str
   const sendText = async () => {
     const t = text.trim(); if (!t) return;
     setText(""); setPanel("none");
+    onType("");
     await onSend({ text: t.slice(0, 2000) });
   };
 
@@ -74,7 +75,7 @@ export function ChatComposer({ cid, me, onSend, onType }: { cid: string; me: str
     <div className="bg-chat-wall pb-[max(0.5rem,env(safe-area-inset-bottom))]">
       {panel === "emoji" && (
         <div className="grid max-h-52 grid-cols-8 gap-1 overflow-y-auto p-2 text-2xl">
-          {EMOJIS.map((e) => <button key={e} type="button" onClick={() => { setText((t) => t + e); input.current?.focus(); }} className="rounded-lg p-1 hover:bg-secondary">{e}</button>)}
+          {EMOJIS.map((e) => <button key={e} type="button" onClick={() => { const next = text + e; setText(next); onType(next); input.current?.focus(); }} className="rounded-lg p-1 hover:bg-secondary">{e}</button>)}
         </div>
       )}
       {panel === "attach" && (
