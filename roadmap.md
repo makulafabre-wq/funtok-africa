@@ -1,6 +1,7 @@
 # Funtok roadmap
 - [x] WhatsApp-style online, last-seen, and typing indicators; expiry tests and signed-in presence saving verified
-- [ ] Post page: improve camera recording and preview, small-screen layout, sound tools, and reliable posting
+- [x] Post page: full-screen recording/preview, small-screen layout, countdown timer, beauty/effects, music-file mixing and edited export verified; cancel/save-retry controls added
+- [ ] Post page real Bunny upload/read-back verification — CDN access issue remains; edited export verified locally, not a published test post
 - [x] Single-tap pause/resume and long-press video menu; phone gestures and controlled MP4 download verified
 - [ ] Real video downloads — Bunny CDN currently blocks the MP4; menu shows an error until Bunny access is restored
 - [x] Double-tap feed likes, avatar follow badges, and creator profile Follow button; signed-in like and follow/unfollow verified
