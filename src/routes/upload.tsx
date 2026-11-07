@@ -117,7 +117,7 @@ function UploadPage() {
             endpoint: "https://video.bunnycdn.com/tusupload", retryDelays: [0,3000,5000,10000],
             headers: { AuthorizationSignature: ticket.signature, AuthorizationExpire: String(ticket.expire), VideoId: ticket.videoId, LibraryId: ticket.libraryId },
             metadata: { filetype: prepared.type, title: caption.trim() || file.name },
-            onError: reject, onProgress: (sent,total) => setProgress(Math.round(sent/total*100)), onSuccess: resolve,
+            onError: reject, onProgress: (sent,total) => setProgress(Math.round(sent/total*100)), onSuccess: () => resolve(),
           });
           uploadRef.current = upload;
           controller.signal.addEventListener("abort", () => { void upload.abort(); reject(new DOMException("Cancelled","AbortError")); }, { once:true });

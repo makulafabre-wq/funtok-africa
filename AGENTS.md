@@ -15,3 +15,4 @@
 - Feed and profile follow controls share the relationship query hook so changes stay synchronized and refresh follower counts and the Following feed.
 - Feed video gestures distinguish delayed single taps, double taps, and movement-cancelled long presses; downloads prepare a video Blob before a separate save click to preserve mobile user activation.
 - Chat presence uses caller-scoped expiring heartbeat timestamps while Chat Side is visible; the online/typing preference clears shared presence, and typing writes are throttled independently from presence.
+- Post edits use a browser canvas and Web Audio export before Bunny upload; completed uploads are retained for save retries, and successful posts invalidate feed queries.
