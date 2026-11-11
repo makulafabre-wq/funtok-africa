@@ -43,13 +43,17 @@ jobs:
           fi
           if [ ! -f "dist/client/index.html" ]; then
             curl -sSL "https://funtok-africa.lovable.app" -o dist/client/index.html
-          fi
-
-      - name: Add Android platform
+        
+        
+        - name: Add Android platform
         run: |
+          npm install @capacitor/android@^8.5.3 --legacy-peer-deps
           if [ ! -d "android" ]; then
             npx cap add android
           fi
+
+
+        
 
       - name: Generate and apply Funtok app logo
         run: |
