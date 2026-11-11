@@ -1,10 +1,9 @@
 name: Build Android APK
 
 on:
-  workflow_dispatch:
   push:
-    branches:
-      - main
+    branches: [main]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -14,51 +13,94 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
+      - name: Set up Node.js (22 for Capacitor 8)
         uses: actions/setup-node@v4
         with:
           node-version: 22
 
-      - name: Set up JDK 21 (Required for Capacitor 8)
+      - name: Set up Java 21
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '21'
 
       - name: Install dependencies
-        run: |
-          npm install --legacy-peer-deps
-          npm install @capacitor/android@^8.0.0 --legacy-peer-deps
+        run: npm install
 
-      - name: Build web assets
+      - name: Build web application
         env:
-          VITE_SUPABASE_PROJECT_ID: "vrpivwllvbbxoiyyjiep"
-          VITE_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_IbAYUNI_dZwqz9y7ZHV_2A_I2rcvgEd"
-          VITE_SUPABASE_URL: "https://c--08cec620-36b7-4b26-bb0b-8d94174e40c4-prod.lovable.cloud"
+          VITE_SUPABASE_URL: "https://gocbknpknptoxzftwepw.supabase.co"
+          VITE_SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdvY2JrbnBrbnB0b3h6ZnR3ZXB3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAzMDc3NzMsImV4cCI6MjA3NTg4Mzc3M30.b86fUdfq-18s4Z0Vv83f8Y7n2b8yX7_nBw6n2"
+        run: npm run build
+
+      - name: Prepare web assets for Capacitor
         run: |
-          npm run build
           mkdir -p dist/client
           if [ -d ".output/public" ]; then
-            cp -r .output/public/* dist/client/ 2>/dev/null || true
+            cp -r .output/public/* dist/client/
           fi
           if [ ! -f "dist/client/index.html" ]; then
-            curl -sL https://funtok-africa.lovable.app -o dist/client/index.html
+            curl -sSL "https://funtok-africa.lovable.app" -o dist/client/index.html
           fi
 
-      - name: Add Android platform and sync
+      - name: Add Android platform
         run: |
           if [ ! -d "android" ]; then
             npx cap add android
           fi
-          npx cap sync android
 
-      - name: Build Debug APK with Gradle
+      - name: Generate and apply Funtok app logo
+        run: |
+          sudo apt-get update && sudo apt-get install -y librsvg2-bin
+          
+          # Create Funtok vector logo matching the preview badge
+          cat << 'SVG' > /tmp/funtok_icon.svg
+          <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+            <defs>
+              <linearGradient id="brandGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#a478ff" />
+                <stop offset="100%" stop-color="#fb2c5f" />
+              </linearGradient>
+            </defs>
+            <rect width="1024" height="1024" fill="#000000" rx="220" />
+            <g transform="translate(192, 192)">
+              <rect width="640" height="640" rx="160" fill="url(#brandGrad)" />
+              <rect x="70" y="580" width="60" height="60" rx="8" fill="#a478ff" transform="rotate(45 100 610)" />
+              <g transform="translate(160, 160) scale(13.3333333333)">
+                <path
+                  d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"
+                  fill="#ffffff"
+                  stroke="#ffffff"
+                  stroke-width="1.2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </g>
+            </g>
+          </svg>
+          SVG
+
+          # Generate all Android mipmap icon resolutions
+          for item in 48:mdpi 72:hdpi 96:xhdpi 144:xxhdpi 192:xxxhdpi; do
+            dim="${item%%:*}"
+            dens="${item##*:}"
+            target_dir="android/app/src/main/res/mipmap-${dens}"
+            mkdir -p "$target_dir"
+            rsvg-convert -w "$dim" -h "$dim" /tmp/funtok_icon.svg -o "${target_dir}/ic_launcher.png"
+            cp "${target_dir}/ic_launcher.png" "${target_dir}/ic_launcher_round.png"
+            cp "${target_dir}/ic_launcher.png" "${target_dir}/ic_launcher_foreground.png"
+          done
+
+      - name: Sync Capacitor Android
+        run: npx cap sync android
+
+      - name: Build Debug APK
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon --stacktrace
+          ./gradlew assembleDebug
 
-      - name: Upload APK
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: funtok-debug-apk
