@@ -37,14 +37,12 @@ jobs:
           VITE_SUPABASE_URL: "https://c--08cec620-36b7-4b26-bb0b-8d94174e40c4-prod.lovable.cloud"
         run: |
           npm run build
-          if [ ! -d "dist/client" ]; then
-            if [ -d ".output/public" ]; then
-              mkdir -p dist
-              cp -r .output/public dist/client
-            elif [ -d "dist" ]; then
-              mkdir -p dist/client
-              cp -r dist/* dist/client/ 2>/dev/null || true
-            fi
+          mkdir -p dist/client
+          if [ -d ".output/public" ]; then
+            cp -r .output/public/* dist/client/ 2>/dev/null || true
+          fi
+          if [ ! -f "dist/client/index.html" ]; then
+            curl -sL https://funtok-africa.lovable.app -o dist/client/index.html
           fi
 
       - name: Add Android platform and sync
