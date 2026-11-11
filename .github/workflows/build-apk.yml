@@ -19,14 +19,11 @@ jobs:
         with:
           node-version: 20
 
-      - name: Set up JDK 17
+      - name: Set up JDK 21 (Required for Capacitor 8)
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
-          java-version: '17'
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+          java-version: '21'
 
       - name: Install dependencies
         run: |
@@ -34,11 +31,20 @@ jobs:
           npm install @capacitor/android@^8.0.0 --legacy-peer-deps
 
       - name: Build web assets
+        env:
+          VITE_SUPABASE_PROJECT_ID: "vrpivwllvbbxoiyyjiep"
+          VITE_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_IbAYUNI_dZwqz9y7ZHV_2A_I2rcvgEd"
+          VITE_SUPABASE_URL: "https://c--08cec620-36b7-4b26-bb0b-8d94174e40c4-prod.lovable.cloud"
         run: |
           npm run build
-          if [ ! -d "dist/client" ] && [ -d ".output/public" ]; then
-            mkdir -p dist
-            cp -r .output/public dist/client
+          if [ ! -d "dist/client" ]; then
+            if [ -d ".output/public" ]; then
+              mkdir -p dist
+              cp -r .output/public dist/client
+            elif [ -d "dist" ]; then
+              mkdir -p dist/client
+              cp -r dist/* dist/client/ 2>/dev/null || true
+            fi
           fi
 
       - name: Add Android platform and sync
@@ -52,7 +58,7 @@ jobs:
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace
+          ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
