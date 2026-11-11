@@ -24,10 +24,8 @@ jobs:
           distribution: 'zulu'
           java-version: '21'
 
-      
       - name: Install dependencies
         run: npm install --legacy-peer-deps
-
 
       - name: Build web application
         env:
@@ -43,23 +41,18 @@ jobs:
           fi
           if [ ! -f "dist/client/index.html" ]; then
             curl -sSL "https://funtok-africa.lovable.app" -o dist/client/index.html
-        
-        
-        - name: Add Android platform
+          fi
+
+      - name: Add Android platform
         run: |
           npm install @capacitor/android@^8.5.3 --legacy-peer-deps
           if [ ! -d "android" ]; then
             npx cap add android
           fi
 
-
-        
-
       - name: Generate and apply Funtok app logo
         run: |
           sudo apt-get update && sudo apt-get install -y librsvg2-bin
-          
-          # Create Funtok vector logo matching the preview badge
           cat << 'SVG' > /tmp/funtok_icon.svg
           <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
             <defs>
@@ -86,7 +79,6 @@ jobs:
           </svg>
           SVG
 
-          # Generate all Android mipmap icon resolutions
           for item in 48:mdpi 72:hdpi 96:xhdpi 144:xxhdpi 192:xxxhdpi; do
             dim="${item%%:*}"
             dens="${item##*:}"
