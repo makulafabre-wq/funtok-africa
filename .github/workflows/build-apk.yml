@@ -21,8 +21,8 @@ jobs:
       - name: Set up Java 21
         uses: actions/setup-java@v4
         with:
-          distribution: 'zulu'
-          java-version: '21'
+          distribution: "zulu"
+          java-version: "21"
 
       - name: Install dependencies
         run: npm install --legacy-peer-deps
@@ -53,7 +53,7 @@ jobs:
       - name: Generate and apply Funtok app logo
         run: |
           sudo apt-get update && sudo apt-get install -y librsvg2-bin
-          cat << 'SVG' > /tmp/funtok_icon.svg
+          cat << "SVG" > /tmp/funtok_icon.svg
           <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
             <defs>
               <linearGradient id="brandGrad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -91,6 +91,36 @@ jobs:
 
       - name: Sync Capacitor Android
         run: npx cap sync android
+
+      - name: Configure Android permissions and AdMob App ID
+        run: |
+          python3 - << "EOF"
+          manifest_path = "android/app/src/main/AndroidManifest.xml"
+          with open(manifest_path, "r", encoding="utf-8") as f:
+              data = f.read()
+
+          if "usesCleartextTraffic" not in data:
+              data = data.replace('android:allowBackup="true"', 'android:allowBackup="true"\n        android:usesCleartextTraffic="true"')
+
+          admob_tags = """        <meta-data
+                      android:name="com.google.android.gms.ads.APPLICATION_ID"
+                      android:value="ca-app-pub-3877753844959715~4589245523"/>
+                  <meta-data
+                      android:name="com.google.android.gms.ads.DELAY_APP_MEASUREMENT_INIT"
+                      android:value="true"/>"""
+
+          if "com.google.android.gms.ads.APPLICATION_ID" not in data:
+              data = data.replace("</application>", admob_tags + "\n    </application>")
+
+          for perm in ["CAMERA", "RECORD_AUDIO", "MODIFY_AUDIO_SETTINGS", "POST_NOTIFICATIONS"]:
+              tag = f'    <uses-permission android:name="android.permission.{perm}" />'
+              if perm not in data:
+                  data = data.replace("</manifest>", tag + "\n</manifest>")
+
+          with open(manifest_path, "w", encoding="utf-8") as f:
+              f.write(data)
+          print("AndroidManifest configured successfully!")
+          EOF
 
       - name: Build Debug APK
         run: |
