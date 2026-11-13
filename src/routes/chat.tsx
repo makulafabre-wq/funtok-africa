@@ -337,7 +337,7 @@ function Bubble({ m, mine, size, otherReadAt }: { m: Message; mine: boolean; siz
           </div>
         )}
         <MediaContent imageUrl={m.imageUrl} audioUrl={m.audioUrl} fileUrl={m.fileUrl} fileName={m.fileName} />
-        {m.text && <p className={`whitespace-pre-wrap break-words px-2.5 pt-1.5 ${textSizeClass(size)}`}>{m.text}</p>}
+        {m.text && <p className={`chat-message-text whitespace-pre-wrap break-words px-2.5 pt-1.5 ${textSizeClass(size)}`}>{m.text}</p>}
         <p className={`flex items-center justify-end gap-1 px-2 pb-1 text-[11px] text-chat-meta`}>
           {formatChatTime(m.createdAt)}
           {mine && (read ? <CheckCheck className="h-4 w-4 text-tick-read" /> : <Check className="h-4 w-4" />)}

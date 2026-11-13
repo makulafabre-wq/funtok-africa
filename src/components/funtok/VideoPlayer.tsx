@@ -152,7 +152,7 @@ export function VideoPlayer({ src, poster, active, prebuffer = false, cacheOffli
   }, [active, online]);
 
   return (
-    <div className="relative h-full w-full select-none overflow-hidden" onClick={handleTap}
+    <div className="touch-manipulation relative h-full w-full select-none overflow-hidden" onClick={handleTap}
       onPointerDown={(event) => {
         if (event.button !== 0) return;
         clearHold(); suppressClick.current = false;

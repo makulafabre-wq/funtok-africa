@@ -79,7 +79,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
+      { name: "theme-color", content: "#000000" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
       { title: "Funtok — Videos, chat and live" },
       { name: "description", content: "Watch Uganda's short videos, chat with friends and go live on Funtok." },
       { name: "author", content: "Funtok" },
