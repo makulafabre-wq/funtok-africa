@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { loadHls } from "@/lib/hls-loader";
 import { Video, Play } from "lucide-react";
+import { cacheMedia, cachedMediaUrl, offlineVideoUrl } from "@/lib/offline-cache";
+import { useOnline } from "@/hooks/use-online";
 
 type Props = {
   src: string;
   poster?: string;
   active: boolean;
   prebuffer?: boolean;
+  cacheOffline?: boolean;
   muted: boolean;
   onTap?: () => void;
   onDoubleTap?: () => void;
@@ -16,7 +19,27 @@ type Props = {
   className?: string;
 };
 
-export function VideoPlayer({ src, poster, active, prebuffer = false, muted, onTap, onDoubleTap, onLongPress, tapToPause = false, onWatch, className }: Props) {
+export function VideoPlayer({ src, poster, active, prebuffer = false, cacheOffline = false, muted, onTap, onDoubleTap, onLongPress, tapToPause = false, onWatch, className }: Props) {
+  const online = useOnline();
+  const [offlineMissing, setOfflineMissing] = useState(false);
+  const [savedPoster, setSavedPoster] = useState<string>();
+  useEffect(() => {
+    if (!cacheOffline || !online || (!active && !prebuffer)) return;
+    const mp4 = offlineVideoUrl(src);
+    if (mp4) void cacheMedia(mp4, "video");
+    if (poster) void cacheMedia(poster, "image");
+  }, [src, poster, active, prebuffer, online, cacheOffline]);
+  useEffect(() => {
+    if (!poster || online) { setSavedPoster(undefined); return; }
+    let cancelled = false;
+    let objectUrl: string | undefined;
+    void cachedMediaUrl(poster).then((url) => {
+      if (cancelled) { if (url) URL.revokeObjectURL(url); return; }
+      objectUrl = url;
+      setSavedPoster(url);
+    });
+    return () => { cancelled = true; if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [poster, online]);
   const [paused, setPaused] = useState(false);
   const pausedRef = useRef(false);
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -60,10 +83,22 @@ export function VideoPlayer({ src, poster, active, prebuffer = false, muted, onT
     if (!el) return;
     setPlaying(false);
     setPosterFailed(false);
+    setOfflineMissing(false);
     let cancelled = false;
+    let objectUrl: string | undefined;
     const playWhenReady = () => { if (activeRef.current && !pausedRef.current) void el.play().catch(() => undefined); };
     el.addEventListener("loadeddata", playWhenReady);
-    if (el.canPlayType("application/vnd.apple.mpegurl")) {
+    if (!online) {
+      const mp4 = offlineVideoUrl(src);
+      void cachedMediaUrl(mp4 ?? src).then((url) => {
+        if (cancelled) { if (url) URL.revokeObjectURL(url); return; }
+        if (!url) { setOfflineMissing(true); return; }
+        objectUrl = url;
+        el.src = url;
+        el.load();
+        playWhenReady();
+      });
+    } else if (el.canPlayType("application/vnd.apple.mpegurl")) {
       el.src = src;
     } else {
       loadHls().then(({ default: Hls }) => {
@@ -77,8 +112,8 @@ export function VideoPlayer({ src, poster, active, prebuffer = false, muted, onT
         } else el.src = src;
       }).catch(() => { if (!cancelled) el.src = src; });
     }
-    return () => { cancelled = true; el.removeEventListener("loadeddata", playWhenReady); hlsRef.current?.destroy(); hlsRef.current = null; el.pause(); el.removeAttribute("src"); el.load(); };
-  }, [src]);
+    return () => { cancelled = true; el.removeEventListener("loadeddata", playWhenReady); hlsRef.current?.destroy(); hlsRef.current = null; el.pause(); el.removeAttribute("src"); el.load(); if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [src, online]);
 
   useEffect(() => {
     if (active || prebuffer) hlsRef.current?.startLoad();
@@ -95,7 +130,7 @@ export function VideoPlayer({ src, poster, active, prebuffer = false, muted, onT
   }, [active, src]);
 
   useEffect(() => {
-    if (!active) return;
+    if (!active || !online) return;
     const el = ref.current;
     if (!el) return;
     let watched = 0;
@@ -114,7 +149,7 @@ export function VideoPlayer({ src, poster, active, prebuffer = false, muted, onT
       el.removeEventListener("timeupdate", onTime);
       if (watched > 1) watchRef.current?.(watched, Math.min(100, maxPct));
     };
-  }, [active]);
+  }, [active, online]);
 
   return (
     <div className="relative h-full w-full select-none overflow-hidden" onClick={handleTap}
@@ -134,7 +169,7 @@ export function VideoPlayer({ src, poster, active, prebuffer = false, muted, onT
       onContextMenu={(event) => { if (onLongPress) { event.preventDefault(); clearHold(); suppressClick.current = true; onLongPress(); } }}>
     <video
       ref={ref}
-      poster={poster}
+      poster={savedPoster ?? poster}
       loop
       playsInline
       muted={muted}
@@ -144,7 +179,8 @@ export function VideoPlayer({ src, poster, active, prebuffer = false, muted, onT
       onError={() => setPlaying(false)}
       className={className ?? "h-full w-full object-cover"}
     />
-    {poster && !playing && !paused && !posterFailed && <img src={poster} alt="" draggable={false} decoding="async" fetchPriority={active || prebuffer ? "high" : "low"} onError={() => setPosterFailed(true)} className="absolute inset-0 h-full w-full object-cover" />}
+    {poster && !playing && !paused && !posterFailed && <img src={savedPoster ?? poster} alt="" draggable={false} decoding="async" fetchPriority={active || prebuffer ? "high" : "low"} onError={() => setPosterFailed(true)} className="absolute inset-0 h-full w-full object-cover" />}
+    {!online && <div role="status" className="pointer-events-none absolute inset-x-0 top-1/3 mx-auto w-fit bg-secondary px-3 py-1 text-xs text-secondary-foreground">{offlineMissing ? "This video isn't saved offline yet" : "Offline · Cached mode"}</div>}
     {!playing && posterFailed && <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 bg-card text-muted-foreground"><Video className="h-12 w-12" /><span className="text-sm">Video unavailable</span></div>}
     {paused && <div role="status" aria-label="Video paused" className="pointer-events-none absolute inset-0 flex items-center justify-center"><Play className="h-16 w-16 fill-foreground text-foreground drop-shadow-lg" /></div>}
     </div>

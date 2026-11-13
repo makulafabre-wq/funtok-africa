@@ -13,19 +13,23 @@ const SELECT = "*, profiles(username, display_name, avatar_url)";
 export async function fetchFeed(tab: FeedTab, userId?: string): Promise<FeedVideo[]> {
   if (tab === "fire") return [];
   if (tab === "trending") {
-    const { data } = await supabase.from("videos").select(SELECT).eq("visibility", "public").order("trending_score", { ascending: false }).limit(50);
+    const { data, error } = await supabase.from("videos").select(SELECT).eq("visibility", "public").order("trending_score", { ascending: false }).limit(50);
+    if (error) throw error;
     return (data ?? []) as FeedVideo[];
   }
   if (tab === "nearby") {
-    const { data } = await supabase.from("videos").select(SELECT).eq("visibility", "public").ilike("location", "%kampala%").order("created_at", { ascending: false }).limit(30);
+    const { data, error } = await supabase.from("videos").select(SELECT).eq("visibility", "public").ilike("location", "%kampala%").order("created_at", { ascending: false }).limit(30);
+    if (error) throw error;
     return (data ?? []) as FeedVideo[];
   }
   if (tab === "following") {
     if (!userId) return [];
-    const { data: f } = await supabase.from("follows").select("following_id").eq("follower_id", userId);
+    const { data: f, error: followsError } = await supabase.from("follows").select("following_id").eq("follower_id", userId);
+    if (followsError) throw followsError;
     const ids = (f ?? []).map((r) => r.following_id);
     if (!ids.length) return [];
-    const { data } = await supabase.from("videos").select(SELECT).eq("visibility", "public").in("user_id", ids).order("created_at", { ascending: false }).limit(30);
+    const { data, error } = await supabase.from("videos").select(SELECT).eq("visibility", "public").in("user_id", ids).order("created_at", { ascending: false }).limit(30);
+    if (error) throw error;
     return (data ?? []) as FeedVideo[];
   }
   // For You: top 20 by trending, mixed with ~20% fresh videos from the last hour
@@ -34,6 +38,8 @@ export async function fetchFeed(tab: FeedTab, userId?: string): Promise<FeedVide
     supabase.from("videos").select(SELECT).eq("visibility", "public").order("trending_score", { ascending: false }).limit(20),
     supabase.from("videos").select(SELECT).eq("visibility", "public").gt("created_at", since).order("created_at", { ascending: false }).limit(5),
   ]);
+  if (top.error) throw top.error;
+  if (fresh.error) throw fresh.error;
   return mixForYou((top.data ?? []) as FeedVideo[], (fresh.data ?? []) as FeedVideo[]);
 }
 
@@ -45,7 +51,7 @@ export function mixForYou<T extends { id: string }>(top: T[], fresh: T[]): T[] {
   let ti = 0;
   while (ti < top.length || freshQ.length) {
     const useFresh = freshQ.length > 0 && ((out.length + 1) % 5 === 0 || ti >= top.length);
-    const next = useFresh ? freshQ.shift()! : top[ti++];
+     const next = useFresh ? freshQ.shift() : top[ti++];
     if (next && !seen.has(next.id)) { seen.add(next.id); out.push(next); }
   }
   return out;

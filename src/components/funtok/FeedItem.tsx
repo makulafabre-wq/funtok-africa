@@ -91,7 +91,7 @@ export function FeedItem({ video, active, prebuffer = false, muted, onToggleMute
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-background">
-      <VideoPlayer src={playlistUrl(video.bunny_video_id)} poster={video.thumbnail_url || thumbUrl(video.bunny_video_id, 720)} active={active && !menu} prebuffer={prebuffer} muted={muted} tapToPause onLongPress={() => setMenu(true)} onDoubleTap={doubleTapLike} onWatch={onWatch} />
+      <VideoPlayer src={playlistUrl(video.bunny_video_id)} poster={video.thumbnail_url || thumbUrl(video.bunny_video_id, 720)} active={active && !menu} prebuffer={prebuffer} cacheOffline={video.visibility === "public"} muted={muted} tapToPause onLongPress={() => setMenu(true)} onDoubleTap={doubleTapLike} onWatch={onWatch} />
       <div className="pointer-events-none absolute inset-0 bg-scrim" />
       {heartBurst && <div key={heartBurst} className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden="true">
         <Heart className="h-24 w-24 fill-primary text-primary motion-safe:animate-heart" />

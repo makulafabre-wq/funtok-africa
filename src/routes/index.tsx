@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, useHydrated } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Flame, Search, Camera, Rocket } from "lucide-react";
 import { toast } from "sonner";
@@ -14,6 +14,8 @@ import { BottomNav } from "@/components/funtok/BottomNav";
 import { SideToggle } from "@/components/funtok/SideToggle";
 import { Logo } from "@/components/funtok/Logo";
 import { BannerAd, HouseAdOverlay, useAdSetup } from "@/components/funtok/Ads";
+import { readSavedFeed, saveFeed } from "@/lib/offline-cache";
+import { useOnline } from "@/hooks/use-online";
 
 const TABS: { id: FeedTab; label: string }[] = [
   { id: "foryou", label: "For You" },
@@ -48,6 +50,7 @@ function FunSide() {
   const swipe = useHorizontalSwipe(() => { if (tab !== "fire") void navigate({ to: "/chat" }); });
   const ads = useAdSetup();
   const [rewarding, setRewarding] = useState(false);
+  const online = useOnline();
 
   const [visited, setVisited] = useState<FeedTab[]>([tab]);
   useEffect(() => { setVisited((previous) => previous.includes(tab) ? previous : [...previous, tab]); }, [tab]);
@@ -91,6 +94,7 @@ function FunSide() {
               </Link>
             ))}
           </div>
+          {!online && <div role="status" className="bg-secondary px-3 py-1 text-center text-xs text-secondary-foreground">Offline · Cached mode</div>}
           {tab === "trending" && (
             <div className="pointer-events-auto flex items-center justify-between rounded-xl bg-overlay px-3 py-2 text-xs">
               <span className="flex items-center gap-1 font-semibold"><Flame className="h-4 w-4 text-primary" /> Trending in Kampala · Top 50</span>
@@ -114,10 +118,15 @@ function FeedPanel({ tab, active, userId, sharedVideo, adSetup }: {
   tab: FeedTab; active: boolean; userId: string | undefined; sharedVideo: string | undefined;
   adSetup: { ads: HouseAd[]; every: number; enabled: boolean } | undefined;
 }) {
-  const feed = useQuery({ queryKey: ["feed", tab, userId], queryFn: () => fetchFeed(tab, userId), enabled: active, staleTime: 5 * 60_000, gcTime: 30 * 60_000, refetchOnWindowFocus: false });
-  const entries = injectAds(feed.data ?? [], adSetup?.ads ?? [], adSetup?.every ?? 5, (adSetup?.enabled ?? true) && tab !== "trending");
+  const hydrated = useHydrated();
+  const online = useOnline();
+  const saved = hydrated ? readSavedFeed(tab, userId) : undefined;
+  const feed = useQuery({ queryKey: ["feed", tab, userId], queryFn: () => fetchFeed(tab, userId), placeholderData: () => saved, enabled: active && online, staleTime: 5 * 60_000, gcTime: 30 * 60_000, refetchOnWindowFocus: false });
+  useEffect(() => { if (feed.data && !feed.isPlaceholderData) saveFeed(tab, userId, feed.data); }, [feed.data, feed.isPlaceholderData, tab, userId]);
+  const entries = injectAds(feed.data ?? saved ?? [], adSetup?.ads ?? [], adSetup?.every ?? 5, online && (adSetup?.enabled ?? true) && tab !== "trending");
   const startIndex = sharedVideo ? Math.max(0, entries.findIndex((entry) => entry.kind === "video" && entry.video.id === sharedVideo)) : 0;
-  if (feed.isLoading) return <div className="flex h-full items-center justify-center"><div className="h-10 w-10 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>;
+  if (feed.isLoading && !entries.length) return <div className="flex h-full items-center justify-center"><div className="h-10 w-10 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>;
+  if (!online && !entries.length) return <div className="flex h-full items-center justify-center px-8 text-center text-muted-foreground">No saved videos in this tab yet.</div>;
   if (!entries.length) return <EmptyFeed tab={tab} signedIn={!!userId} />;
   return <Feed entries={entries} startIndex={startIndex} ranked={tab === "trending"} enabled={active} />;
 }

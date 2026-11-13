@@ -1,4 +1,6 @@
 # Funtok roadmap
+- [x] Saved feeds per tab, bounded complete-video/poster caching and offline indicators; controlled MP4 offline playback/tab switching verified, 19 tests pass
+- [ ] Published offline reopening and real Bunny cache verification — requires publishing; Bunny MP4 access remains blocked, controlled file playback verified instead
 - [x] WhatsApp-style online, last-seen, and typing indicators; expiry tests and signed-in presence saving verified
 - [x] Post page: full-screen recording/preview, small-screen layout, countdown timer, beauty/effects, music-file mixing and edited export verified; cancel/save-retry controls added
 - [ ] Post page real Bunny upload/read-back verification — CDN access issue remains; edited export verified locally, not a published test post
