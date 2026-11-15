@@ -120,9 +120,7 @@ jobs:
           cat << "EOF" > android/app/src/main/res/drawable/splash.xml
           <?xml version="1.0" encoding="utf-8"?>
           <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-              <item>
-                  <color android:color="#000000" />
-              </item>
+              <item android:drawable="@android:color/black" />
               <item
                   android:width="120dp"
                   android:height="120dp"
@@ -141,36 +139,44 @@ jobs:
           with open(manifest_path, "r", encoding="utf-8") as f:
               data = f.read()
 
-          # Enable hardware acceleration and cleartext traffic for fast media streaming
+          # Enable hardware acceleration and cleartext traffic
           if "usesCleartextTraffic" not in data:
               data = data.replace('android:allowBackup="true"', 'android:allowBackup="true"\n        android:hardwareAccelerated="true"\n        android:usesCleartextTraffic="true"')
 
-          # Inject AdMob App ID to prevent instant startup crash
+          # Inject AdMob App ID
           admob_tags = """        <meta-data
                       android:name="com.google.android.gms.ads.APPLICATION_ID"
-                      android:value="ca-app-pub-3877753844959715~4589245523"/>"""
+                      android:value="ca-app-pub-3877753844959715~4589245523"/>
+                  <meta-data
+                      android:name="com.google.android.gms.ads.DELAY_APP_MEASUREMENT_INIT"
+                      android:value="true"/>"""
           if "com.google.android.gms.ads.APPLICATION_ID" not in data:
               data = data.replace("</application>", f"{admob_tags}\n    </application>")
 
-          # Inject required camera, audio, internet and storage permissions
-          perms = """    <uses-permission android:name="android.permission.INTERNET" />
-              <uses-permission android:name="android.permission.CAMERA" />
-              <uses-permission android:name="android.permission.RECORD_AUDIO" />
-              <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
-              <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
-              <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-              <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
-              <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />"""
-          if "android.permission.CAMERA" not in data:
-              data = data.replace("<application", f"{perms}\n    <application")
+          # Inject permissions
+          perms = [
+              "INTERNET",
+              "CAMERA",
+              "RECORD_AUDIO",
+              "MODIFY_AUDIO_SETTINGS",
+              "READ_MEDIA_VIDEO",
+              "READ_MEDIA_IMAGES",
+              "POST_NOTIFICATIONS"
+          ]
+          for p in perms:
+              tag = f'    <uses-permission android:name="android.permission.{p}" />'
+              if f'android.permission.{p}' not in data:
+                  data = data.replace("</manifest>", f"{tag}\n</manifest>")
 
           with open(manifest_path, "w", encoding="utf-8") as f:
               f.write(data)
           EOF
 
       - name: Build Android Debug APK
-        working-directory: android
-        run: ./gradlew assembleDebug --stacktrace
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
 
       - name: Upload Debug APK Artifact
         uses: actions/upload-artifact@v4
