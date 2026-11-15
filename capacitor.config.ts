@@ -3,7 +3,8 @@ import type { CapacitorConfig } from "@capacitor/cli";
 const config: CapacitorConfig = {
   appId: "com.funtok.app",
   appName: "Funtok",
-  webDir: "dist/client",
+  // TanStack Start outputs the static web app to .output/public, not dist/client.
+  webDir: ".output/public",
   backgroundColor: "#000000",
   plugins: {
     AdMob: {
