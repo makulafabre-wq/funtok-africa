@@ -27,21 +27,46 @@ jobs:
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 
-      - name: Build web application
-        env:
-          VITE_SUPABASE_URL: "https://gocbknpknptoxzftwepw.supabase.co"
-          VITE_SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdvY2JrbnBrbnB0b3h6ZnR3ZXB3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAzMDc3NzMsImV4cCI6MjA3NTg4Mzc3M30.b86fUdfq-18s4Z0Vv83f8Y7n2b8yX7_nBw6n2"
-        run: npm run build
-
-      - name: Prepare web assets for Capacitor
+      - name: Bundle web assets without badge
         run: |
-          mkdir -p dist/client
-          if [ -d ".output/public" ]; then
-            cp -r .output/public/* dist/client/
-          fi
-          if [ ! -f "dist/client/index.html" ]; then
-            curl -sSL "https://funtok-africa.lovable.app" -o dist/client/index.html
-          fi
+          python3 - << 'PYEOF'
+          import urllib.request, re, os
+
+          headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+          base_url = "https://funtok-africa.lovable.app"
+
+          req = urllib.request.Request(base_url, headers=headers)
+          html = urllib.request.urlopen(req).read().decode("utf-8")
+
+          # Remove lovable badge completely
+          html = re.sub(r'<style>\s*#lovable-badge.*?</style>', '', html, flags=re.DOTALL)
+          html = re.sub(r'<aside id="lovable-badge".*?</aside>', '', html, flags=re.DOTALL)
+          html = re.sub(r'<script>\s*\(\(\)\s*=>\s*\{\s*if\s*\(window\.self.*?lovable-badge.*?</script>', '', html, flags=re.DOTALL)
+
+          assets = set(re.findall(r'["\'](/assets/[^"\']+)["\']', html))
+          print(f"Bundling {len(assets)} assets for offline native app...")
+
+          os.makedirs("dist/client/assets", exist_ok=True)
+          with open("dist/client/index.html", "w", encoding="utf-8") as f:
+              f.write(html)
+
+          downloaded = 0
+          for asset in sorted(assets):
+              full_url = base_url + asset
+              local_path = "dist/client" + asset
+              os.makedirs(os.path.dirname(local_path), exist_ok=True)
+              try:
+                  areq = urllib.request.Request(full_url, headers=headers)
+                  with urllib.request.urlopen(areq) as resp:
+                      content = resp.read()
+                      with open(local_path, "wb") as out:
+                          out.write(content)
+                  downloaded += 1
+              except Exception as e:
+                  print(f"Warning downloading {asset}: {e}")
+
+          print(f"Successfully packaged {downloaded} assets into dist/client!")
+          PYEOF
 
       - name: Add Android platform
         run: |
@@ -50,7 +75,7 @@ jobs:
             npx cap add android
           fi
 
-      - name: Generate and apply Funtok app logo
+      - name: Generate Funtok app logo and launcher icons
         run: |
           sudo apt-get update && sudo apt-get install -y librsvg2-bin
           cat << "SVG" > /tmp/funtok_icon.svg
@@ -89,6 +114,23 @@ jobs:
             cp "${target_dir}/ic_launcher.png" "${target_dir}/ic_launcher_foreground.png"
           done
 
+      - name: Configure branded app open splash screen
+        run: |
+          mkdir -p android/app/src/main/res/drawable
+          cat << "EOF" > android/app/src/main/res/drawable/splash.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+              <item>
+                  <color android:color="#000000" />
+              </item>
+              <item
+                  android:width="120dp"
+                  android:height="120dp"
+                  android:gravity="center"
+                  android:drawable="@mipmap/ic_launcher_round" />
+          </layer-list>
+          EOF
+
       - name: Sync Capacitor Android
         run: npx cap sync android
 
@@ -106,33 +148,33 @@ jobs:
           # Inject AdMob App ID to prevent instant startup crash
           admob_tags = """        <meta-data
                       android:name="com.google.android.gms.ads.APPLICATION_ID"
-                      android:value="ca-app-pub-3877753844959715~4589245523"/>
-                  <meta-data
-                      android:name="com.google.android.gms.ads.DELAY_APP_MEASUREMENT_INIT"
-                      android:value="true"/>"""
-
+                      android:value="ca-app-pub-3877753844959715~4589245523"/>"""
           if "com.google.android.gms.ads.APPLICATION_ID" not in data:
-              data = data.replace("</application>", admob_tags + "\n    </application>")
+              data = data.replace("</application>", f"{admob_tags}\n    </application>")
 
-          # Inject native hardware permissions
-          for perm in ["CAMERA", "RECORD_AUDIO", "MODIFY_AUDIO_SETTINGS", "POST_NOTIFICATIONS"]:
-              tag = f'    <uses-permission android:name="android.permission.{perm}" />'
-              if perm not in data:
-                  data = data.replace("</manifest>", tag + "\n</manifest>")
+          # Inject required camera, audio, internet and storage permissions
+          perms = """    <uses-permission android:name="android.permission.INTERNET" />
+              <uses-permission android:name="android.permission.CAMERA" />
+              <uses-permission android:name="android.permission.RECORD_AUDIO" />
+              <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+              <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+              <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+              <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+              <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />"""
+          if "android.permission.CAMERA" not in data:
+              data = data.replace("<application", f"{perms}\n    <application")
 
           with open(manifest_path, "w", encoding="utf-8") as f:
               f.write(data)
-          print("AndroidManifest configured successfully!")
           EOF
 
-      - name: Build Debug APK
-        run: |
-          cd android
-          chmod +x gradlew
-          ./gradlew assembleDebug
+      - name: Build Android Debug APK
+        working-directory: android
+        run: ./gradlew assembleDebug --stacktrace
 
-      - name: Upload APK Artifact
+      - name: Upload Debug APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: funtok-debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
