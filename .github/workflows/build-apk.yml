@@ -37,6 +37,61 @@ jobs:
             npx cap add android
           fi
 
+      - name: Generate Funtok app logo and launcher icons
+        run: |
+          sudo apt-get update && sudo apt-get install -y librsvg2-bin
+          cat << "SVG" > /tmp/funtok_icon.svg
+          <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+            <defs>
+              <linearGradient id="brandGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#a478ff" />
+                <stop offset="100%" stop-color="#fb2c5f" />
+              </linearGradient>
+            </defs>
+            <rect width="1024" height="1024" fill="#000000" rx="220" />
+            <g transform="translate(192, 192)">
+              <rect width="640" height="640" rx="160" fill="url(#brandGrad)" />
+              <rect x="70" y="580" width="60" height="60" rx="8" fill="#a478ff" transform="rotate(45 100 610)" />
+              <g transform="translate(160, 160) scale(13.3333333333)">
+                <path
+                  d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594l1.051-5.558z"
+                  fill="#ffffff"
+                  stroke="#ffffff"
+                  stroke-width="1.2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </g>
+            </g>
+          </svg>
+          SVG
+
+          for item in 48:mdpi 72:hdpi 96:xhdpi 144:xxhdpi 192:xxxhdpi; do
+            dim="${item%%:*}"
+            dens="${item##*:}"
+            target_dir="android/app/src/main/res/mipmap-${dens}"
+            mkdir -p "$target_dir"
+            rsvg-convert -w "$dim" -h "$dim" /tmp/funtok_icon.svg -o "${target_dir}/ic_launcher.png"
+            cp "${target_dir}/ic_launcher.png" "${target_dir}/ic_launcher_round.png"
+            cp "${target_dir}/ic_launcher.png" "${target_dir}/ic_launcher_foreground.png"
+          done
+
+      - name: Configure branded app open splash screen
+        run: |
+          mkdir -p android/app/src/main/res/drawable
+          rm -f android/app/src/main/res/drawable/splash.png
+          cat << "EOF" > android/app/src/main/res/drawable/splash.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+              <item android:drawable="@android:color/black" />
+              <item
+                  android:width="120dp"
+                  android:height="120dp"
+                  android:gravity="center"
+                  android:drawable="@mipmap/ic_launcher_round" />
+          </layer-list>
+          EOF
+
       - name: Sync Capacitor Android
         run: npx cap sync android
 
