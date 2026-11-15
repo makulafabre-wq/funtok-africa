@@ -1,0 +1,59 @@
+name: Diagnose Android Web Build Output
+
+on:
+  workflow_dispatch:
+
+jobs:
+  inspect-web-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Build web app
+        run: npm run build
+
+      - name: Find generated index.html
+        shell: bash
+        run: |
+          echo "---- Candidate Capacitor web directories ----"
+          for dir in dist/client .output/public dist .output build; do
+            if [ -d "$dir" ]; then
+              echo "Found directory: $dir"
+              if [ -f "$dir/index.html" ]; then
+                echo "  HAS index.html: $dir/index.html"
+              else
+                echo "  Missing index.html"
+              fi
+            else
+              echo "Not found: $dir"
+            fi
+          done
+
+          echo "---- All generated index.html files ----"
+          find . \
+            \( -path './node_modules' -o -path './android' -o -path './.git' \) -prune \
+            -o -type f -name index.html -print
+
+          echo "---- Build output files ----"
+          for dir in dist .output build; do
+            if [ -d "$dir" ]; then
+              find "$dir" -maxdepth 3 -type f -print | head -200
+            fi
+          done
+
+          if [ -f .output/public/index.html ] || [ -f dist/client/index.html ] || [ -f dist/index.html ] || [ -f build/index.html ]; then
+            echo "A likely Capacitor web entry point exists. Set capacitor.config.ts webDir to its containing directory."
+          else
+            echo "No standard Capacitor web entry point was generated. Review the output above."
+            exit 1
+          fi
