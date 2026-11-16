@@ -38,7 +38,7 @@ jobs:
           req = urllib.request.Request(base_url, headers=headers)
           html = urllib.request.urlopen(req).read().decode("utf-8")
 
-          # Remove lovable badge completely
+          # Remove lovable badge
           html = re.sub(r'<style>\s*#lovable-badge.*?</style>', '', html, flags=re.DOTALL)
           html = re.sub(r'<aside id="lovable-badge".*?</aside>', '', html, flags=re.DOTALL)
           html = re.sub(r'<script>\s*\(\(\)\s*=>\s*\{\s*if\s*\(window\.self.*?lovable-badge.*?</script>', '', html, flags=re.DOTALL)
@@ -78,7 +78,7 @@ jobs:
             npx cap add android
           fi
 
-      - name: Generate Funtok app logo and launcher icons
+      - name: Generate and apply Funtok app logo
         run: |
           sudo apt-get update && sudo apt-get install -y librsvg2-bin
           cat << "SVG" > /tmp/funtok_icon.svg
@@ -117,78 +117,50 @@ jobs:
             cp "${target_dir}/ic_launcher.png" "${target_dir}/ic_launcher_foreground.png"
           done
 
-      - name: Configure branded app open splash screen
-        run: |
-          mkdir -p android/app/src/main/res/drawable
-          rm -f android/app/src/main/res/drawable/splash.png
-          cat << "EOF" > android/app/src/main/res/drawable/splash.xml
-          <?xml version="1.0" encoding="utf-8"?>
-          <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-              <item android:drawable="@android:color/black" />
-              <item
-                  android:width="120dp"
-                  android:height="120dp"
-                  android:gravity="center"
-                  android:drawable="@mipmap/ic_launcher_round" />
-          </layer-list>
-          EOF
-
-      - name: Configure Android permissions, hardware acceleration, and AdMob
-        run: |
-          python3 - << 'PYEOF_MANIFEST'
-          import xml.etree.ElementTree as ET
-
-          manifest_path = "android/app/src/main/AndroidManifest.xml"
-          tree = ET.parse(manifest_path)
-          root = tree.getroot()
-
-          permissions = [
-              "android.permission.INTERNET",
-              "android.permission.ACCESS_NETWORK_STATE",
-              "android.permission.CAMERA",
-              "android.permission.RECORD_AUDIO",
-              "android.permission.MODIFY_AUDIO_SETTINGS",
-              "android.permission.READ_MEDIA_VIDEO",
-              "android.permission.READ_MEDIA_IMAGES",
-              "android.permission.POST_NOTIFICATIONS",
-          ]
-
-          existing_perms = {elem.attrib.get("{http://schemas.android.com/apk/res/android}name") for elem in root.findall("uses-permission")}
-          for p in permissions:
-              if p not in existing_perms:
-                  elem = ET.Element("uses-permission", {"{http://schemas.android.com/apk/res/android}name": p})
-                  root.insert(0, elem)
-
-          app = root.find("application")
-          if app is not None:
-              app.set("{http://schemas.android.com/apk/res/android}hardwareAccelerated", "true")
-              app_id_exists = False
-              for meta in app.findall("meta-data"):
-                  if meta.attrib.get("{http://schemas.android.com/apk/res/android}name") == "com.google.android.gms.ads.APPLICATION_ID":
-                      app_id_exists = True
-                      meta.set("{http://schemas.android.com/apk/res/android}value", "ca-app-pub-3877753844959715~4589245523")
-              if not app_id_exists:
-                  meta = ET.SubElement(app, "meta-data", {
-                      "{http://schemas.android.com/apk/res/android}name": "com.google.android.gms.ads.APPLICATION_ID",
-                      "{http://schemas.android.com/apk/res/android}value": "ca-app-pub-3877753844959715~4589245523"
-                  })
-
-          tree.write(manifest_path, encoding="utf-8", xml_declaration=True)
-          print("Updated AndroidManifest.xml successfully!")
-          PYEOF_MANIFEST
-
       - name: Sync Capacitor Android
         run: npx cap sync android
 
-      - name: Build Android Debug APK
+      - name: Configure Android permissions, hardware acceleration, and AdMob
+        run: |
+          python3 - << "EOF"
+          manifest_path = "android/app/src/main/AndroidManifest.xml"
+          with open(manifest_path, "r", encoding="utf-8") as f:
+              data = f.read()
+
+          # Enable hardware acceleration and cleartext traffic
+          if "usesCleartextTraffic" not in data:
+              data = data.replace('android:allowBackup="true"', 'android:allowBackup="true"\n        android:hardwareAccelerated="true"\n        android:usesCleartextTraffic="true"')
+
+          # Inject AdMob App ID
+          admob_tags = """        <meta-data
+                      android:name="com.google.android.gms.ads.APPLICATION_ID"
+                      android:value="ca-app-pub-3877753844959715~4589245523"/>
+                  <meta-data
+                      android:name="com.google.android.gms.ads.DELAY_APP_MEASUREMENT_INIT"
+                      android:value="true"/>"""
+
+          if "com.google.android.gms.ads.APPLICATION_ID" not in data:
+              data = data.replace("</application>", admob_tags + "\n    </application>")
+
+          # Inject native hardware permissions
+          for perm in ["CAMERA", "RECORD_AUDIO", "MODIFY_AUDIO_SETTINGS", "POST_NOTIFICATIONS"]:
+              tag = f'    <uses-permission android:name="android.permission.{perm}" />'
+              if perm not in data:
+                  data = data.replace("</manifest>", tag + "\n</manifest>")
+
+          with open(manifest_path, "w", encoding="utf-8") as f:
+              f.write(data)
+          print("AndroidManifest configured successfully!")
+          EOF
+
+      - name: Build Debug APK
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace --no-daemon
+          ./gradlew assembleDebug
 
-      - name: Upload Debug APK Artifact
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: funtok-debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
