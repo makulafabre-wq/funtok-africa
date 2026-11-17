@@ -38,13 +38,11 @@ jobs:
           req = urllib.request.Request(base_url, headers=headers)
           html = urllib.request.urlopen(req).read().decode("utf-8")
 
-          # 1. Permanently wipe Lovable badge elements, scripts, and styles
           html = re.sub(r'<aside\s+[^>]*id=["\']lovable-badge["\'].*?</aside>', '', html, flags=re.DOTALL | re.IGNORECASE)
           html = re.sub(r'<style[^>]*>[^<]*#lovable-badge.*?</style>', '', html, flags=re.DOTALL | re.IGNORECASE)
           html = re.sub(r'<script[^>]*>[^<]*lovable-badge.*?</script>', '', html, flags=re.DOTALL | re.IGNORECASE)
           html = re.sub(r'<script[^>]*src=["\']/__l5e/[^"\']+["\'][^>]*></script>', '', html, flags=re.DOTALL | re.IGNORECASE)
 
-          # Inject nuclear CSS to ensure no badge ever appears
           badge_killer_css = '''
           <style id="funtok-badge-killer">
             #lovable-badge, aside#lovable-badge, [id*="lovable-badge"], .lovable-badge {
@@ -63,7 +61,6 @@ jobs:
           '''
           html = html.replace('</head>', badge_killer_css + '</head>')
 
-          # 2. Fix client-side hydration so TanStack Router does not crash on "This page didn't load"
           redirect_script = '''
           <script>
             if (window.location.pathname.endsWith('/index.html')) {
@@ -148,7 +145,9 @@ jobs:
           done
 
       - name: Sync Capacitor Android
-            - name: Enable immersive full screen
+        run: npx cap sync android
+
+      - name: Enable immersive full screen
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -161,7 +160,7 @@ jobs:
           source = path.read_text(encoding="utf-8")
           marker = "public class MainActivity extends BridgeActivity {"
           if marker not in source:
-              raise SystemExit(f"Could not find expected activity declaration in {path}")
+              raise SystemExit(f"Could not find BridgeActivity class in {path}")
 
           replacement = """public class MainActivity extends BridgeActivity {
               @Override
@@ -203,10 +202,10 @@ jobs:
                   }
               }
           """
+
           path.write_text(source.replace(marker, replacement, 1), encoding="utf-8")
           print(f"Enabled immersive full screen in {path}")
           PY
-        run: npx cap sync android
 
       - name: Configure TikTok-style full screen, permissions, and AdMob
         run: |
@@ -217,11 +216,9 @@ jobs:
           with open(manifest_path, "r", encoding="utf-8") as f:
               data = f.read()
 
-          # Enable hardware acceleration and cleartext traffic
           if "usesCleartextTraffic" not in data:
               data = data.replace('android:allowBackup="true"', 'android:allowBackup="true"\n        android:hardwareAccelerated="true"\n        android:usesCleartextTraffic="true"')
 
-          # Inject AdMob App ID
           admob_tags = """        <meta-data
                       android:name="com.google.android.gms.ads.APPLICATION_ID"
                       android:value="ca-app-pub-3877753844959715~4589245523"/>
@@ -232,7 +229,6 @@ jobs:
           if "com.google.android.gms.ads.APPLICATION_ID" not in data:
               data = data.replace("</application>", admob_tags + "\n    </application>")
 
-          # Inject native hardware permissions
           for perm in ["CAMERA", "RECORD_AUDIO", "MODIFY_AUDIO_SETTINGS", "POST_NOTIFICATIONS"]:
               tag = f'    <uses-permission android:name="android.permission.{perm}" />'
               if perm not in data:
@@ -242,7 +238,6 @@ jobs:
               f.write(data)
           print("AndroidManifest configured successfully!")
 
-          # Configure full-screen TikTok immersive style in styles.xml
           styles_path = "android/app/src/main/res/values/styles.xml"
           if os.path.exists(styles_path):
               with open(styles_path, "r", encoding="utf-8") as f:
