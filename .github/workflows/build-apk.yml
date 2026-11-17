@@ -148,6 +148,64 @@ jobs:
           done
 
       - name: Sync Capacitor Android
+            - name: Enable immersive full screen
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          matches = list(Path("android/app/src/main/java").rglob("MainActivity.java"))
+          if len(matches) != 1:
+              raise SystemExit(f"Expected one MainActivity.java, found {len(matches)}")
+
+          path = matches[0]
+          source = path.read_text(encoding="utf-8")
+          marker = "public class MainActivity extends BridgeActivity {"
+          if marker not in source:
+              raise SystemExit(f"Could not find expected activity declaration in {path}")
+
+          replacement = """public class MainActivity extends BridgeActivity {
+              @Override
+              protected void onCreate(android.os.Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  hideSystemBars();
+              }
+
+              private void hideSystemBars() {
+                  if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                      getWindow().setDecorFitsSystemWindows(false);
+                      android.view.WindowInsetsController controller = getWindow().getInsetsController();
+                      if (controller != null) {
+                          controller.hide(
+                              android.view.WindowInsets.Type.statusBars()
+                                  | android.view.WindowInsets.Type.navigationBars()
+                          );
+                          controller.setSystemBarsBehavior(
+                              android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                          );
+                      }
+                  } else {
+                      getWindow().getDecorView().setSystemUiVisibility(
+                          android.view.View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                              | android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                              | android.view.View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                              | android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                              | android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                              | android.view.View.SYSTEM_UI_FLAG_FULLSCREEN
+                      );
+                  }
+              }
+
+              @Override
+              public void onWindowFocusChanged(boolean hasFocus) {
+                  super.onWindowFocusChanged(hasFocus);
+                  if (hasFocus) {
+                      hideSystemBars();
+                  }
+              }
+          """
+          path.write_text(source.replace(marker, replacement, 1), encoding="utf-8")
+          print(f"Enabled immersive full screen in {path}")
+          PY
         run: npx cap sync android
 
       - name: Configure TikTok-style full screen, permissions, and AdMob
