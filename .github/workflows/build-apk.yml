@@ -27,7 +27,7 @@ jobs:
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 
-      - name: Bundle web assets without badge
+      - name: Bundle web assets without badge and fix hydration
         run: |
           python3 - << 'PYEOF_INNER'
           import urllib.request, re, os
@@ -38,10 +38,40 @@ jobs:
           req = urllib.request.Request(base_url, headers=headers)
           html = urllib.request.urlopen(req).read().decode("utf-8")
 
-          # Remove lovable badge
-          html = re.sub(r'<style>\s*#lovable-badge.*?</style>', '', html, flags=re.DOTALL)
-          html = re.sub(r'<aside id="lovable-badge".*?</aside>', '', html, flags=re.DOTALL)
-          html = re.sub(r'<script>\s*\(\(\)\s*=>\s*\{\s*if\s*\(window\.self.*?lovable-badge.*?</script>', '', html, flags=re.DOTALL)
+          # 1. Permanently wipe Lovable badge elements, scripts, and styles
+          html = re.sub(r'<aside\s+[^>]*id=["\']lovable-badge["\'].*?</aside>', '', html, flags=re.DOTALL | re.IGNORECASE)
+          html = re.sub(r'<style[^>]*>[^<]*#lovable-badge.*?</style>', '', html, flags=re.DOTALL | re.IGNORECASE)
+          html = re.sub(r'<script[^>]*>[^<]*lovable-badge.*?</script>', '', html, flags=re.DOTALL | re.IGNORECASE)
+          html = re.sub(r'<script[^>]*src=["\']/__l5e/[^"\']+["\'][^>]*></script>', '', html, flags=re.DOTALL | re.IGNORECASE)
+
+          # Inject nuclear CSS to ensure no badge ever appears
+          badge_killer_css = '''
+          <style id="funtok-badge-killer">
+            #lovable-badge, aside#lovable-badge, [id*="lovable-badge"], .lovable-badge {
+              display: none !important;
+              opacity: 0 !important;
+              visibility: hidden !important;
+              pointer-events: none !important;
+              width: 0 !important;
+              height: 0 !important;
+              max-height: 0 !important;
+              overflow: hidden !important;
+              position: absolute !important;
+              top: -9999px !important;
+            }
+          </style>
+          '''
+          html = html.replace('</head>', badge_killer_css + '</head>')
+
+          # 2. Fix client-side hydration so TanStack Router does not crash on "This page didn't load"
+          redirect_script = '''
+          <script>
+            if (window.location.pathname.endsWith('/index.html')) {
+              window.history.replaceState(null, '', '/');
+            }
+          </script>
+          '''
+          html = html.replace('<head>', '<head>' + redirect_script)
 
           assets = set(re.findall(r'["\'](/assets/[^"\']+)["\']', html))
           print(f"Bundling {len(assets)} assets for offline native app...")
@@ -120,9 +150,11 @@ jobs:
       - name: Sync Capacitor Android
         run: npx cap sync android
 
-      - name: Configure Android permissions, hardware acceleration, and AdMob
+      - name: Configure TikTok-style full screen, permissions, and AdMob
         run: |
           python3 - << "EOF"
+          import os
+
           manifest_path = "android/app/src/main/AndroidManifest.xml"
           with open(manifest_path, "r", encoding="utf-8") as f:
               data = f.read()
@@ -151,6 +183,24 @@ jobs:
           with open(manifest_path, "w", encoding="utf-8") as f:
               f.write(data)
           print("AndroidManifest configured successfully!")
+
+          # Configure full-screen TikTok immersive style in styles.xml
+          styles_path = "android/app/src/main/res/values/styles.xml"
+          if os.path.exists(styles_path):
+              with open(styles_path, "r", encoding="utf-8") as f:
+                  sdata = f.read()
+              immersive_items = """
+                  <item name="android:windowTranslucentStatus">true</item>
+                  <item name="android:windowTranslucentNavigation">true</item>
+                  <item name="android:fitsSystemWindows">false</item>
+                  <item name="android:statusBarColor">@android:color/transparent</item>
+                  <item name="android:navigationBarColor">@android:color/transparent</item>
+              """
+              if "android:windowTranslucentStatus" not in sdata:
+                  sdata = sdata.replace("</style>", immersive_items + "\n    </style>", 1)
+                  with open(styles_path, "w", encoding="utf-8") as f:
+                      f.write(sdata)
+                  print("styles.xml configured for immersive full screen!")
           EOF
 
       - name: Build Debug APK
