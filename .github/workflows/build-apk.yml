@@ -229,6 +229,8 @@ jobs:
         run: |
           python3 - << "EOF"
           import os
+          import re
+          from pathlib import Path
 
           manifest_path = "android/app/src/main/AndroidManifest.xml"
           with open(manifest_path, "r", encoding="utf-8") as f:
@@ -256,23 +258,33 @@ jobs:
               f.write(data)
           print("AndroidManifest configured successfully!")
 
-          styles_path = "android/app/src/main/res/values/styles.xml"
-          if os.path.exists(styles_path):
-              with open(styles_path, "r", encoding="utf-8") as f:
-                  sdata = f.read()
-
-              if "windowTranslucentStatus" not in sdata:
-                  sdata = sdata.replace("</style>", """
-                  <item name="android:windowTranslucentStatus">true</item>
-                  <item name="android:windowTranslucentNavigation">true</item>
-                  <item name="android:fitsSystemWindows">false</item>
-                  <item name="android:statusBarColor">@android:color/black</item>
-                  <item name="android:navigationBarColor">@android:color/black</item>
-                  </style>
-                  """, 1)
-                  with open(styles_path, "w", encoding="utf-8") as f:
-                      f.write(sdata)
-                  print("styles.xml configured for black status/navigation bars!")
+          for styles_path in Path("android/app/src/main/res").rglob("styles.xml"):
+              content = styles_path.read_text(encoding="utf-8")
+              content = re.sub(
+                  r"(?s)(<style\b[^>]*>)(.*?)(</style>)",
+                  lambda m: (
+                      m.group(1) +
+                      re.sub(
+                          r"\s*<item name=\"android:(?:windowTranslucentStatus|windowTranslucentNavigation|fitsSystemWindows|statusBarColor|navigationBarColor|windowLightStatusBar|windowLightNavigationBar)\">.*?</item>",
+                          "",
+                          m.group(2),
+                          flags=re.DOTALL,
+                      ) +
+                      """
+                      <item name="android:windowTranslucentStatus">false</item>
+                      <item name="android:windowTranslucentNavigation">false</item>
+                      <item name="android:fitsSystemWindows">false</item>
+                      <item name="android:statusBarColor">#000000</item>
+                      <item name="android:navigationBarColor">#000000</item>
+                      <item name="android:windowLightStatusBar">false</item>
+                      """ +
+                      m.group(3)
+                  ),
+                  content,
+                  flags=re.DOTALL,
+              )
+              styles_path.write_text(content, encoding="utf-8")
+              print(f"Set black, non-translucent status bars in {styles_path}")
           EOF
 
       - name: Build Debug APK
