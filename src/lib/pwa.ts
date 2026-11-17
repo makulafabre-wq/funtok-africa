@@ -9,21 +9,47 @@ export function refuseOfflineWorker(hostname: string, isProd: boolean, framed: b
 
 export async function registerOfflineWorker() {
   if (!("serviceWorker" in navigator)) return;
-  const refused = refuseOfflineWorker(window.location.hostname, import.meta.env.PROD, window.self !== window.top, new URLSearchParams(window.location.search).get("sw") === "off");
-  if (refused) {
-    const registrations = await navigator.serviceWorker.getRegistrations();
-    await Promise.all(registrations.filter((registration) => [registration.active, registration.waiting, registration.installing].some((worker) => worker && new URL(worker.scriptURL).pathname === "/sw.js")).map((registration) => registration.unregister()));
-    return;
+
+  try {
+    const refused = refuseOfflineWorker(
+      window.location.hostname,
+      import.meta.env.PROD,
+      window.self !== window.top,
+      new URLSearchParams(window.location.search).get("sw") === "off",
+    );
+
+    if (refused) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(
+        registrations
+          .filter((registration) =>
+            [registration.active, registration.waiting, registration.installing].some(
+              (worker) => worker && new URL(worker.scriptURL).pathname === "/sw.js",
+            ),
+          )
+          .map((registration) => registration.unregister()),
+      );
+      return;
+    }
+
+    await navigator.serviceWorker.register("/sw.js");
+    await navigator.serviceWorker.ready;
+
+    if (!navigator.serviceWorker.controller) {
+      await new Promise<void>((resolve) => {
+        const done = () => {
+          navigator.serviceWorker.removeEventListener("controllerchange", done);
+          resolve();
+        };
+        navigator.serviceWorker.addEventListener("controllerchange", done, { once: true });
+        setTimeout(done, 5000);
+      });
+    }
+
+    if (navigator.serviceWorker.controller && navigator.onLine) {
+      await fetch("/", { credentials: "omit" });
+    }
+  } catch {
+    // Fail silently in native wrapper to avoid crashing startup
   }
-  await navigator.serviceWorker.register("/sw.js");
-  await navigator.serviceWorker.ready;
-  // Warm a public navigation after control is established; never cache protected pages.
-  if (!navigator.serviceWorker.controller) {
-    await new Promise<void>((resolve) => {
-      const done = () => { navigator.serviceWorker.removeEventListener("controllerchange", done); resolve(); };
-      navigator.serviceWorker.addEventListener("controllerchange", done, { once: true });
-      setTimeout(done, 5000);
-    });
-  }
-  if (navigator.serviceWorker.controller && navigator.onLine) await fetch("/", { credentials: "omit" });
 }
