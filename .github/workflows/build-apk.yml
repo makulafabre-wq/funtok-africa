@@ -27,7 +27,7 @@ jobs:
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 
-      - name: Bundle web assets without badge and fix hydration
+      - name: Bundle all web assets without badge and fix hydration
         run: |
           python3 - << 'PYEOF_INNER'
           import urllib.request, re, os
@@ -44,7 +44,7 @@ jobs:
           html = re.sub(r'<script[^>]*>[^<]*lovable-badge.*?</script>', '', html, flags=re.DOTALL | re.IGNORECASE)
           html = re.sub(r'<script[^>]*src=["\']/__l5e/[^"\']+["\'][^>]*></script>', '', html, flags=re.DOTALL | re.IGNORECASE)
 
-          # Inject nuclear CSS to ensure no badge ever appears
+          # Inject CSS to ensure no badge ever appears
           badge_killer_css = '''
           <style id="funtok-badge-killer">
             #lovable-badge, aside#lovable-badge, [id*="lovable-badge"], .lovable-badge {
@@ -63,18 +63,54 @@ jobs:
           '''
           html = html.replace('</head>', badge_killer_css + '</head>')
 
-          # 2. Fix client-side hydration so TanStack Router does not crash on "This page didn't load"
-          redirect_script = '''
+          # 2. Fix client-side hydration for TanStack Router on mobile
+          debug_and_redirect_script = '''
           <script>
             if (window.location.pathname.endsWith('/index.html')) {
               window.history.replaceState(null, '', '/');
             }
           </script>
           '''
-          html = html.replace('<head>', '<head>' + redirect_script)
+          html = html.replace('<head>', '<head>' + debug_and_redirect_script)
 
-          assets = set(re.findall(r'["\'](/assets/[^"\']+)["\']', html))
-          print(f"Bundling {len(assets)} assets for offline native app...")
+          # 3. Discover all assets across all pages and dynamic JS chunk imports
+          routes = ["/", "/chat", "/market", "/upload", "/auth"]
+          all_assets = set()
+
+          for r in routes:
+              try:
+                  r_req = urllib.request.Request(base_url + r, headers=headers)
+                  r_html = urllib.request.urlopen(r_req).read().decode("utf-8")
+                  matches = re.findall(r'["\'](/assets/[A-Za-z0-9_\-\.]+\.[a-z0-9]+)["\']', r_html)
+                  all_assets.update(matches)
+              except Exception as e:
+                  print(f"Error checking route {r}: {e}")
+
+          queue = [a for a in all_assets if a.endswith(".js")]
+          visited = set(queue)
+
+          while queue:
+              curr = queue.pop(0)
+              try:
+                  url = base_url + curr
+                  c_req = urllib.request.Request(url, headers=headers)
+                  code = urllib.request.urlopen(c_req).read().decode("utf-8")
+                  matches = re.findall(r'["\'](\.?/assets/[A-Za-z0-9_\-\.]+\.[a-z0-9]+|\./[A-Za-z0-9_\-\.]+\.[a-z0-9]+)["\']', code)
+                  for m in matches:
+                      if m.startswith("./"):
+                          c = "/assets/" + m[2:]
+                      elif m.startswith("/assets/"):
+                          c = m
+                      else:
+                          continue
+                      all_assets.add(c)
+                      if c not in visited and c.endswith(".js"):
+                          visited.add(c)
+                          queue.append(c)
+              except Exception as e:
+                  print(f"Error analyzing chunk {curr}: {e}")
+
+          print(f"Completely mapped {len(all_assets)} assets across all Funtok routes and code-split chunks.")
 
           targets = [".output/public", "dist/client"]
           for target in targets:
@@ -83,7 +119,7 @@ jobs:
                   f.write(html)
 
           downloaded = 0
-          for asset in sorted(assets):
+          for asset in sorted(all_assets):
               full_url = base_url + asset
               try:
                   areq = urllib.request.Request(full_url, headers=headers)
@@ -98,7 +134,7 @@ jobs:
               except Exception as e:
                   print(f"Warning downloading {asset}: {e}")
 
-          print(f"Successfully packaged {downloaded} assets!")
+          print(f"Successfully packaged {downloaded} of {len(all_assets)} assets into APK bundle!")
           PYEOF_INNER
 
       - name: Add Android platform
@@ -238,64 +274,64 @@ jobs:
                           flags=re.DOTALL,
                       ) +
                       """
-                      <item name="android:windowBackground">@android:color/black</item>
-                      <item name="android:colorBackground">@android:color/black</item>
-                      <item name="android:statusBarColor">@android:color/transparent</item>
-                      <item name="android:navigationBarColor">@android:color/transparent</item>
-                      <item name="android:windowTranslucentStatus">false</item>
-                      <item name="android:windowTranslucentNavigation">false</item>
-                      <item name="android:fitsSystemWindows">false</item>
-                      <item name="android:windowLightStatusBar">false</item>
-                      <item name="android:windowLightNavigationBar">false</item>
-                      """ +
+                  <item name="android:windowBackground">#000000</item>
+                  <item name="android:colorBackground">#000000</item>
+                  <item name="android:windowTranslucentStatus">false</item>
+                  <item name="android:windowTranslucentNavigation">false</item>
+                  <item name="android:statusBarColor">@android:color/transparent</item>
+                  <item name="android:navigationBarColor">@android:color/transparent</item>
+                  <item name="android:windowLightStatusBar">false</item>
+                  <item name="android:windowLightNavigationBar">false</item>
+              """ +
                       m.group(3)
                   ),
                   content,
-                  flags=re.DOTALL,
               )
               styles_path.write_text(content, encoding="utf-8")
-              print(f"Updated styles in {styles_path}")
+          print("Updated styles.xml for transparent black bars!")
           EOF
 
-      - name: Configure Android manifest and permissions
+      - name: Configure AndroidManifest for hardware acceleration and camera
         run: |
           python3 - << "EOF"
-          import os
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
 
-          manifest_path = "android/app/src/main/AndroidManifest.xml"
-          with open(manifest_path, "r", encoding="utf-8") as f:
-              data = f.read()
+          manifest_path = Path("android/app/src/main/AndroidManifest.xml")
+          content = manifest_path.read_text(encoding="utf-8")
 
-          if "usesCleartextTraffic" not in data:
-              data = data.replace('android:allowBackup="true"', 'android:allowBackup="true"\n        android:hardwareAccelerated="true"\n        android:usesCleartextTraffic="true"')
+          permissions = [
+              '<uses-permission android:name="android.permission.INTERNET" />',
+              '<uses-permission android:name="android.permission.CAMERA" />',
+              '<uses-permission android:name="android.permission.RECORD_AUDIO" />',
+              '<uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />',
+              '<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />',
+              '<uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />',
+              '<uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />',
+          ]
 
-          admob_tags = """        <meta-data
-                      android:name="com.google.android.gms.ads.APPLICATION_ID"
-                      android:value="ca-app-pub-3877753844959715~4589245523"/>
-                  <meta-data
-                      android:name="com.google.android.gms.ads.DELAY_APP_MEASUREMENT_INIT"
-                      android:value="true"/>"""
+          for perm in permissions:
+              if perm not in content:
+                  content = content.replace("</manifest>", f"    {perm}\n</manifest>")
 
-          if "com.google.android.gms.ads.APPLICATION_ID" not in data:
-              data = data.replace("</application>", admob_tags + "\n    </application>")
+          if 'android:hardwareAccelerated="true"' not in content:
+              content = content.replace("<application", '<application android:hardwareAccelerated="true"')
 
-          for perm in ["CAMERA", "RECORD_AUDIO", "MODIFY_AUDIO_SETTINGS", "POST_NOTIFICATIONS"]:
-              tag = f'    <uses-permission android:name="android.permission.{perm}" />'
-              if perm not in data:
-                  data = data.replace("</manifest>", tag + "\n</manifest>")
+          if 'ca-app-pub-3877753844959715~4589245523' not in content:
+              admob_meta = '    <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-3877753844959715~4589245523"/>\n'
+              content = content.replace("</application>", f"{admob_meta}</application>")
 
-          with open(manifest_path, "w", encoding="utf-8") as f:
-              f.write(data)
-          print("AndroidManifest configured successfully!")
+          manifest_path.write_text(content, encoding="utf-8")
+          print("Updated AndroidManifest.xml successfully!")
           EOF
 
-      - name: Build Debug APK
+      - name: Build Android Debug APK
         run: |
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug
 
-      - name: Upload APK Artifact
+      - name: Upload Debug APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: funtok-debug-apk
