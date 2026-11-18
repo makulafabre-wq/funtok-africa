@@ -38,11 +38,13 @@ jobs:
           req = urllib.request.Request(base_url, headers=headers)
           html = urllib.request.urlopen(req).read().decode("utf-8")
 
+          # 1. Permanently wipe Lovable badge elements, scripts, and styles
           html = re.sub(r'<aside\s+[^>]*id=["\']lovable-badge["\'].*?</aside>', '', html, flags=re.DOTALL | re.IGNORECASE)
           html = re.sub(r'<style[^>]*>[^<]*#lovable-badge.*?</style>', '', html, flags=re.DOTALL | re.IGNORECASE)
           html = re.sub(r'<script[^>]*>[^<]*lovable-badge.*?</script>', '', html, flags=re.DOTALL | re.IGNORECASE)
           html = re.sub(r'<script[^>]*src=["\']/__l5e/[^"\']+["\'][^>]*></script>', '', html, flags=re.DOTALL | re.IGNORECASE)
 
+          # Inject nuclear CSS to ensure no badge ever appears
           badge_killer_css = '''
           <style id="funtok-badge-killer">
             #lovable-badge, aside#lovable-badge, [id*="lovable-badge"], .lovable-badge {
@@ -61,6 +63,7 @@ jobs:
           '''
           html = html.replace('</head>', badge_killer_css + '</head>')
 
+          # 2. Fix client-side hydration so TanStack Router does not crash on "This page didn't load"
           redirect_script = '''
           <script>
             if (window.location.pathname.endsWith('/index.html')) {
@@ -147,9 +150,9 @@ jobs:
       - name: Sync Capacitor Android
         run: npx cap sync android
 
-      - name: Rewrite MainActivity with black system bars
+      - name: Force TikTok edge-to-edge transparent system bars in MainActivity
         run: |
-          python3 - <<'PY'
+          python3 - << 'PY'
           from pathlib import Path
           import re
 
@@ -160,53 +163,45 @@ jobs:
           path = matches[0]
           old_source = path.read_text(encoding="utf-8")
           package_match = re.search(r"^\s*package\s+[\w.]+\s*;", old_source, re.MULTILINE)
-
           if not package_match:
-              raise SystemExit(f"Could not find package declaration in {path}")
-
+              raise SystemExit("No package line")
           package_line = package_match.group(0).strip()
 
           new_source = f"""{package_line}
 
+          import android.graphics.Color;
+          import android.os.Build;
+          import android.os.Bundle;
+          import android.view.View;
+          import android.view.Window;
+          import android.view.WindowManager;
           import com.getcapacitor.BridgeActivity;
 
           public class MainActivity extends BridgeActivity {{
               @Override
-              protected void onCreate(android.os.Bundle savedInstanceState) {{
+              protected void onCreate(Bundle savedInstanceState) {{
                   super.onCreate(savedInstanceState);
-                  applyBlackSystemBars();
+                  applyImmersiveEdgeToEdge();
               }}
 
-              private void applyBlackSystemBars() {{
-                  android.view.Window window = getWindow();
-                  window.setStatusBarColor(android.graphics.Color.BLACK);
-                  window.setNavigationBarColor(android.graphics.Color.BLACK);
+              private void applyImmersiveEdgeToEdge() {{
+                  Window window = getWindow();
+                  window.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS | WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION);
+                  window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+                  window.setStatusBarColor(Color.TRANSPARENT);
+                  window.setNavigationBarColor(Color.TRANSPARENT);
 
-                  if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {{
-                      window.setDecorFitsSystemWindows(true);
-
-                      if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {{
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {{
+                      window.setDecorFitsSystemWindows(false);
+                      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {{
                           window.setStatusBarContrastEnforced(false);
                           window.setNavigationBarContrastEnforced(false);
                       }}
-
-                      android.view.WindowInsetsController controller = window.getInsetsController();
-                      if (controller != null) {{
-                          controller.show(
-                              android.view.WindowInsets.Type.statusBars()
-                                  | android.view.WindowInsets.Type.navigationBars()
-                          );
-                          controller.setSystemBarsAppearance(
-                              0,
-                              android.view.WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
-                                  | android.view.WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
-                          );
-                      }}
                   }} else {{
                       window.getDecorView().setSystemUiVisibility(
-                          android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                              | android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                              | android.view.View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                          View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                              | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                              | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
                       );
                   }}
               }}
@@ -215,17 +210,16 @@ jobs:
               public void onWindowFocusChanged(boolean hasFocus) {{
                   super.onWindowFocusChanged(hasFocus);
                   if (hasFocus) {{
-                      applyBlackSystemBars();
+                      applyImmersiveEdgeToEdge();
                   }}
               }}
           }}
           """
-
           path.write_text(new_source, encoding="utf-8")
-          print(f"Rewrote {path} with black system bars.")
+          print("Rewrote MainActivity for transparent edge-to-edge!")
           PY
 
-      - name: Force black system bars in Android styles
+      - name: Force black background and transparent bars in styles.xml
         run: |
           python3 - << "EOF"
           import re
@@ -233,40 +227,40 @@ jobs:
 
           for styles_path in Path("android/app/src/main/res").rglob("styles.xml"):
               content = styles_path.read_text(encoding="utf-8")
-
               content = re.sub(
                   r"(?s)(<style\b[^>]*>)(.*?)(</style>)",
                   lambda m: (
                       m.group(1) +
                       re.sub(
-                          r"\s*<item name=\"android:(?:windowTranslucentStatus|windowTranslucentNavigation|fitsSystemWindows|statusBarColor|navigationBarColor|windowLightStatusBar|windowLightNavigationBar)\">.*?</item>",
+                          r"\s*<item name=\"android:(?:windowBackground|colorBackground|windowTranslucentStatus|windowTranslucentNavigation|fitsSystemWindows|statusBarColor|navigationBarColor|windowLightStatusBar|windowLightNavigationBar)\">.*?</item>",
                           "",
                           m.group(2),
                           flags=re.DOTALL,
                       ) +
                       """
+                      <item name="android:windowBackground">@android:color/black</item>
+                      <item name="android:colorBackground">@android:color/black</item>
+                      <item name="android:statusBarColor">@android:color/transparent</item>
+                      <item name="android:navigationBarColor">@android:color/transparent</item>
                       <item name="android:windowTranslucentStatus">false</item>
                       <item name="android:windowTranslucentNavigation">false</item>
                       <item name="android:fitsSystemWindows">false</item>
-                      <item name="android:statusBarColor">#000000</item>
-                      <item name="android:navigationBarColor">#000000</item>
                       <item name="android:windowLightStatusBar">false</item>
+                      <item name="android:windowLightNavigationBar">false</item>
                       """ +
                       m.group(3)
                   ),
                   content,
                   flags=re.DOTALL,
               )
-
               styles_path.write_text(content, encoding="utf-8")
-              print(f"Set black system bars in {styles_path}")
+              print(f"Updated styles in {styles_path}")
           EOF
 
-      - name: Configure Android manifest and app settings
+      - name: Configure Android manifest and permissions
         run: |
           python3 - << "EOF"
           import os
-          from pathlib import Path
 
           manifest_path = "android/app/src/main/AndroidManifest.xml"
           with open(manifest_path, "r", encoding="utf-8") as f:
