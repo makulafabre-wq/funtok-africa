@@ -144,9 +144,11 @@ jobs:
             npx cap add android
           fi
 
-      - name: Generate and apply Funtok app logo
+      - name: Generate borderless Funtok app logo and TikTok Lite splash screen
         run: |
           sudo apt-get update && sudo apt-get install -y librsvg2-bin
+
+          # 1. Full-bleed gradient app icon (no black surrounding)
           cat << "SVG" > /tmp/funtok_icon.svg
           <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
             <defs>
@@ -155,24 +157,21 @@ jobs:
                 <stop offset="100%" stop-color="#fb2c5f" />
               </linearGradient>
             </defs>
-            <rect width="1024" height="1024" fill="#000000" rx="220" />
-            <g transform="translate(192, 192)">
-              <rect width="640" height="640" rx="160" fill="url(#brandGrad)" />
-              <rect x="70" y="580" width="60" height="60" rx="8" fill="#a478ff" transform="rotate(45 100 610)" />
-              <g transform="translate(160, 160) scale(13.3333333333)">
-                <path
-                  d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594l1.051-5.558z"
-                  fill="#ffffff"
-                  stroke="#ffffff"
-                  stroke-width="1.2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-              </g>
+            <rect width="1024" height="1024" fill="url(#brandGrad)" />
+            <g transform="translate(256, 256) scale(21.3333333333)">
+              <path
+                d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594l1.051-5.558z"
+                fill="#ffffff"
+                stroke="#ffffff"
+                stroke-width="0.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
             </g>
           </svg>
           SVG
 
+          # Write app launcher icons
           for item in 48:mdpi 72:hdpi 96:xhdpi 144:xxhdpi 192:xxxhdpi; do
             dim="${item%%:*}"
             dens="${item##*:}"
@@ -181,6 +180,48 @@ jobs:
             rsvg-convert -w "$dim" -h "$dim" /tmp/funtok_icon.svg -o "${target_dir}/ic_launcher.png"
             cp "${target_dir}/ic_launcher.png" "${target_dir}/ic_launcher_round.png"
             cp "${target_dir}/ic_launcher.png" "${target_dir}/ic_launcher_foreground.png"
+          done
+
+          # 2. TikTok Lite style Splash Screen (Pure black, centered glowing logo, bold Funtok, tagline)
+          cat << "SPLASH_SVG" > /tmp/funtok_splash.svg
+          <svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920">
+            <defs>
+              <linearGradient id="brandGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#a478ff" />
+                <stop offset="100%" stop-color="#fb2c5f" />
+              </linearGradient>
+            </defs>
+            <rect width="1080" height="1920" fill="#000000" />
+            <g transform="translate(440, 780)">
+              <rect width="200" height="200" rx="50" fill="url(#brandGrad)" />
+              <g transform="translate(50, 50) scale(4.1666666667)">
+                <path
+                  d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594l1.051-5.558z"
+                  fill="#ffffff"
+                  stroke="#ffffff"
+                  stroke-width="1"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </g>
+            </g>
+            <text x="540" y="1050" font-family="sans-serif" font-size="52" font-weight="bold" fill="#ffffff" text-anchor="middle" letter-spacing="1">Funtok</text>
+            <text x="540" y="1110" font-family="sans-serif" font-size="24" font-weight="normal" fill="#a1a1aa" text-anchor="middle" letter-spacing="0.5">Save data, infinite happiness</text>
+          </svg>
+          SPLASH_SVG
+
+          # Write splash drawables across Android screen densities
+          mkdir -p android/app/src/main/res/drawable
+          rsvg-convert -w 1080 -h 1920 /tmp/funtok_splash.svg -o android/app/src/main/res/drawable/splash.png
+
+          for item in 320:480:mdpi 480:800:hdpi 720:1280:xhdpi 960:1600:xxhdpi 1280:1920:xxxhdpi; do
+            w="${item%%:*}"
+            rest="${item#*:}"
+            h="${rest%%:*}"
+            dens="${rest##*:}"
+            splash_dir="android/app/src/main/res/drawable-port-${dens}"
+            mkdir -p "$splash_dir"
+            rsvg-convert -w "$w" -h "$h" /tmp/funtok_splash.svg -o "${splash_dir}/splash.png"
           done
 
       - name: Sync Capacitor Android
@@ -255,7 +296,7 @@ jobs:
           print("Rewrote MainActivity for transparent edge-to-edge!")
           PY
 
-      - name: Force black background and transparent bars in styles.xml
+      - name: Force black background, splash screen, and transparent bars in styles.xml
         run: |
           python3 - << "EOF"
           import re
@@ -268,13 +309,13 @@ jobs:
                   lambda m: (
                       m.group(1) +
                       re.sub(
-                          r"\s*<item name=\"android:(?:windowBackground|colorBackground|windowTranslucentStatus|windowTranslucentNavigation|fitsSystemWindows|statusBarColor|navigationBarColor|windowLightStatusBar|windowLightNavigationBar)\">.*?</item>",
+                          r"\s*<item name=\"android:(?:windowBackground|colorBackground|windowTranslucentStatus|windowTranslucentNavigation|fitsSystemWindows|statusBarColor|navigationBarColor|windowLightStatusBar|windowLightNavigationBar|windowSplashScreenBackground)\">.*?</item>",
                           "",
                           m.group(2),
                           flags=re.DOTALL,
                       ) +
                       """
-                  <item name="android:windowBackground">#000000</item>
+                  <item name="android:windowBackground">@drawable/splash</item>
                   <item name="android:colorBackground">#000000</item>
                   <item name="android:windowTranslucentStatus">false</item>
                   <item name="android:windowTranslucentNavigation">false</item>
@@ -288,7 +329,7 @@ jobs:
                   content,
               )
               styles_path.write_text(content, encoding="utf-8")
-          print("Updated styles.xml for transparent black bars!")
+          print("Updated styles.xml for transparent black bars and splash drawable!")
           EOF
 
       - name: Configure AndroidManifest for hardware acceleration and camera
