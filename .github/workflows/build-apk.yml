@@ -27,10 +27,10 @@ jobs:
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 
-      - name: Bundle all web assets without badge and fix hydration
+      - name: Bundle all web assets, eliminate 404s and fix hydration
         run: |
           python3 - << 'PYEOF_INNER'
-          import urllib.request, re, os
+          import urllib.request, re, os, shutil
 
           headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
           base_url = "https://funtok-africa.lovable.app"
@@ -44,7 +44,7 @@ jobs:
           html = re.sub(r'<script[^>]*>[^<]*lovable-badge.*?</script>', '', html, flags=re.DOTALL | re.IGNORECASE)
           html = re.sub(r'<script[^>]*src=["\']/__l5e/[^"\']+["\'][^>]*></script>', '', html, flags=re.DOTALL | re.IGNORECASE)
 
-          # Inject CSS to ensure no badge ever appears
+          # Inject CSS to ensure no badge ever appears and prevent layout bleeding
           badge_killer_css = '''
           <style id="funtok-badge-killer">
             #lovable-badge, aside#lovable-badge, [id*="lovable-badge"], .lovable-badge {
@@ -59,19 +59,30 @@ jobs:
               position: absolute !important;
               top: -9999px !important;
             }
+            html, body {
+              background-color: #000000 !important;
+              overflow-x: hidden !important;
+              touch-action: pan-y !important;
+            }
           </style>
           '''
           html = html.replace('</head>', badge_killer_css + '</head>')
 
-          # 2. Fix client-side hydration for TanStack Router on mobile
-          debug_and_redirect_script = '''
+          # 2. Fix client-side hydration and path resolution for mobile
+          runtime_fix_script = '''
           <script>
             if (window.location.pathname.endsWith('/index.html')) {
-              window.history.replaceState(null, '', '/');
+              window.history.replaceState(null, '', window.location.pathname.replace(/index\.html$/, '') || '/');
             }
+            window.addEventListener('error', function(e) {
+              console.error('Runtime error:', e.message, e.filename, e.lineno);
+            });
+            window.addEventListener('unhandledrejection', function(e) {
+              console.error('Unhandled rejection:', e.reason);
+            });
           </script>
           '''
-          html = html.replace('<head>', '<head>' + debug_and_redirect_script)
+          html = html.replace('<head>', '<head>' + runtime_fix_script)
 
           # 3. Discover all assets across all pages and dynamic JS chunk imports
           routes = ["/", "/chat", "/market", "/upload", "/auth"]
@@ -118,6 +129,15 @@ jobs:
               with open(f"{target}/index.html", "w", encoding="utf-8") as f:
                   f.write(html)
 
+              # Eliminate 404s by creating route directory index files
+              for route_name in ["auth", "chat", "market", "upload"]:
+                  route_dir = f"{target}/{route_name}"
+                  os.makedirs(route_dir, exist_ok=True)
+                  with open(f"{route_dir}/index.html", "w", encoding="utf-8") as rf:
+                      rf.write(html)
+                  with open(f"{target}/{route_name}.html", "w", encoding="utf-8") as rf2:
+                      rf2.write(html)
+
           downloaded = 0
           for asset in sorted(all_assets):
               full_url = base_url + asset
@@ -134,7 +154,7 @@ jobs:
               except Exception as e:
                   print(f"Warning downloading {asset}: {e}")
 
-          print(f"Successfully packaged {downloaded} of {len(all_assets)} assets into APK bundle!")
+          print(f"Successfully packaged {downloaded} assets and eliminated route 404s!")
           PYEOF_INNER
 
       - name: Add Android platform
@@ -227,7 +247,7 @@ jobs:
       - name: Sync Capacitor Android
         run: npx cap sync android
 
-      - name: Force TikTok edge-to-edge transparent system bars in MainActivity
+      - name: Configure MainActivity with glitch-free black background and edge-to-edge bars
         run: |
           python3 - << 'PY'
           from pathlib import Path
@@ -247,6 +267,7 @@ jobs:
           new_source = f"""{package_line}
 
           import android.graphics.Color;
+          import android.graphics.drawable.ColorDrawable;
           import android.os.Build;
           import android.os.Bundle;
           import android.view.View;
@@ -258,6 +279,11 @@ jobs:
               @Override
               protected void onCreate(Bundle savedInstanceState) {{
                   super.onCreate(savedInstanceState);
+                  // Fix GPU buffer bleed: replace splash drawable with solid black window background
+                  getWindow().setBackgroundDrawable(new ColorDrawable(Color.BLACK));
+                  if (getBridge() != null && getBridge().getWebView() != null) {{
+                      getBridge().getWebView().setBackgroundColor(Color.BLACK);
+                  }}
                   applyImmersiveEdgeToEdge();
               }}
 
@@ -293,10 +319,10 @@ jobs:
           }}
           """
           path.write_text(new_source, encoding="utf-8")
-          print("Rewrote MainActivity for transparent edge-to-edge!")
+          print("Rewrote MainActivity for solid black and glitch-free edge-to-edge!")
           PY
 
-      - name: Force black background, splash screen, and transparent bars in styles.xml
+      - name: Configure clean launch theme and solid black background in styles.xml
         run: |
           python3 - << "EOF"
           import re
@@ -304,18 +330,20 @@ jobs:
 
           for styles_path in Path("android/app/src/main/res").rglob("styles.xml"):
               content = styles_path.read_text(encoding="utf-8")
+              
+              # Ensure AppTheme has solid black background (prevents GPU texture glitching)
               content = re.sub(
-                  r"(?s)(<style\b[^>]*>)(.*?)(</style>)",
+                  r'(<style\s+name="AppTheme"[^>]*>)(.*?)(</style>)',
                   lambda m: (
                       m.group(1) +
                       re.sub(
-                          r"\s*<item name=\"android:(?:windowBackground|colorBackground|windowTranslucentStatus|windowTranslucentNavigation|fitsSystemWindows|statusBarColor|navigationBarColor|windowLightStatusBar|windowLightNavigationBar|windowSplashScreenBackground)\">.*?</item>",
-                          "",
+                          r'\s*<item name="android:(?:windowBackground|colorBackground|windowTranslucentStatus|windowTranslucentNavigation|statusBarColor|navigationBarColor|windowLightStatusBar|windowLightNavigationBar)">.*?</item>',
+                          '',
                           m.group(2),
-                          flags=re.DOTALL,
+                          flags=re.DOTALL
                       ) +
                       """
-                  <item name="android:windowBackground">@drawable/splash</item>
+                  <item name="android:windowBackground">#000000</item>
                   <item name="android:colorBackground">#000000</item>
                   <item name="android:windowTranslucentStatus">false</item>
                   <item name="android:windowTranslucentNavigation">false</item>
@@ -327,9 +355,25 @@ jobs:
                       m.group(3)
                   ),
                   content,
+                  flags=re.DOTALL
+              )
+
+              # Update launch theme with splash drawable
+              content = re.sub(
+                  r'(<style\s+name="AppTheme\.NoActionBarLaunch"[^>]*>)(.*?)(</style>)',
+                  lambda m: (
+                      m.group(1) +
+                      re.sub(r'\s*<item name="android:windowBackground">.*?</item>', '', m.group(2), flags=re.DOTALL) +
+                      """
+                  <item name="android:windowBackground">@drawable/splash</item>
+              """ +
+                      m.group(3)
+                  ),
+                  content,
+                  flags=re.DOTALL
               )
               styles_path.write_text(content, encoding="utf-8")
-          print("Updated styles.xml for transparent black bars and splash drawable!")
+          print("Updated styles.xml successfully!")
           EOF
 
       - name: Configure AndroidManifest for hardware acceleration and camera
