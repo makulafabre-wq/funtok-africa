@@ -154,7 +154,13 @@ jobs:
               except Exception as e:
                   print(f"Warning downloading {asset}: {e}")
 
-          print(f"Successfully packaged {downloaded} assets and eliminated route 404s!")
+          if downloaded != len(all_assets):
+              raise SystemExit(f"Asset packaging incomplete: downloaded {downloaded} of {len(all_assets)} assets")
+          if not any(asset.endswith(".css") for asset in all_assets):
+              raise SystemExit("No CSS stylesheet discovered; refusing to build an unstyled APK")
+          if not any(asset.endswith(".js") for asset in all_assets):
+              raise SystemExit("No JavaScript bundle discovered; refusing to build an empty APK")
+          print(f"Successfully packaged and verified all {downloaded} assets, including CSS and JavaScript.")
           PYEOF_INNER
 
       - name: Add Android platform
@@ -247,7 +253,7 @@ jobs:
       - name: Sync Capacitor Android
         run: npx cap sync android
 
-      - name: Configure MainActivity with glitch-free black background and edge-to-edge bars
+      - name: Configure MainActivity with Android back navigation and edge-to-edge bars
         run: |
           python3 - << 'PY'
           from pathlib import Path
@@ -273,17 +279,29 @@ jobs:
           import android.view.View;
           import android.view.Window;
           import android.view.WindowManager;
+          import androidx.activity.OnBackPressedCallback;
           import com.getcapacitor.BridgeActivity;
 
           public class MainActivity extends BridgeActivity {{
               @Override
               protected void onCreate(Bundle savedInstanceState) {{
                   super.onCreate(savedInstanceState);
-                  // Fix GPU buffer bleed: replace splash drawable with solid black window background
                   getWindow().setBackgroundDrawable(new ColorDrawable(Color.BLACK));
                   if (getBridge() != null && getBridge().getWebView() != null) {{
                       getBridge().getWebView().setBackgroundColor(Color.BLACK);
                   }}
+                  // Back navigates browser/SPA history when available; otherwise Android leaves the app.
+                  getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {{
+                      @Override
+                      public void handleOnBackPressed() {{
+                          if (getBridge() != null && getBridge().getWebView() != null
+                                  && getBridge().getWebView().canGoBack()) {{
+                              getBridge().getWebView().goBack();
+                          }} else {{
+                              finish();
+                          }}
+                      }}
+                  }});
                   applyImmersiveEdgeToEdge();
               }}
 
@@ -319,7 +337,7 @@ jobs:
           }}
           """
           path.write_text(new_source, encoding="utf-8")
-          print("Rewrote MainActivity for solid black and glitch-free edge-to-edge!")
+          print("Configured Android back navigation and edge-to-edge bars.")
           PY
 
       - name: Configure clean launch theme and solid black background in styles.xml
