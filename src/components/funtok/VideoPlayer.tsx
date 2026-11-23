@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { loadHls } from "@/lib/hls-loader";
-import { Video, Play } from "lucide-react";
+import { Video, Play } from "lucide-react";import { Video, Play, Sparkle } from "lucide-react";
+
 import { cacheMedia, cachedMediaUrl, offlineVideoUrl } from "@/lib/offline-cache";
 import { useOnline } from "@/hooks/use-online";
 
