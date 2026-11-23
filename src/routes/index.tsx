@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate, useHydrated } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Flame, Search, Camera, Rocket } from "lucide-react";
+import { Flame, Search, Camera, Rocket } from "lucide-react";import { Video, Play, Sparkle } from "lucide-react";
+
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -213,30 +214,50 @@ function FeedPanel({
     ? Math.max(0, entries.findIndex((entry) => entry.kind === "video" && entry.video.id === sharedVideo))
     : 0;
 
-  // TikTok Buffering Indicator when loading feed
-  if (feed.isLoading && !entries.length) {
-    return (
-      <div className="flex h-full w-full flex-col items-center justify-center bg-black">
-        <div className="relative flex h-8 w-16 items-center justify-center">
+        {/* Funtok Centered Signature Buffering Animation */}
+      {buffering && active && !paused && (
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+          <div className="relative flex h-14 w-14 items-center justify-center">
+            <div
+              className="absolute inset-0 rounded-full border-2 border-transparent border-t-[#A855F7] border-r-[#A855F7]/30"
+              style={{
+                animation: "funtok-orbit-cw 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite",
+                filter: "drop-shadow(0 0 8px #A855F7)",
+              }}
+            />
+            <div
+              className="absolute inset-1.5 rounded-full border-2 border-transparent border-b-[#FF2D55] border-l-[#FF2D55]/30"
+              style={{
+                animation: "funtok-orbit-ccw 0.9s cubic-bezier(0.5, 0, 0.5, 1) infinite",
+                filter: "drop-shadow(0 0 8px #FF2D55)",
+              }}
+            />
+            <div className="relative flex items-center justify-center">
+              <Sparkle
+                className="h-5 w-5 fill-[#FF2D55] text-[#A855F7]"
+                style={{
+                  animation: "funtok-sparkle-pulse 1.4s ease-in-out infinite",
+                  filter: "drop-shadow(0 0 6px #FF2D55)",
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Funtok Bottom Buffering Progress Line */}
+      {buffering && active && !paused && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-[2.5px] overflow-hidden bg-black/40">
           <div
-            className="absolute h-3.5 w-3.5 rounded-full"
+            className="h-full w-1/3 rounded-full bg-gradient-to-r from-[#A855F7] via-[#EC4899] to-[#FF2D55]"
             style={{
-              backgroundColor: "#25F4EE",
-              boxShadow: "0 0 12px #25F4EE",
-              animation: "tiktok-cyan 1.1s cubic-bezier(0.65, 0, 0.35, 1) infinite",
-            }}
-          />
-          <div
-            className="absolute h-3.5 w-3.5 rounded-full"
-            style={{
-              backgroundColor: "#FE2C55",
-              boxShadow: "0 0 12px #FE2C55",
-              animation: "tiktok-magenta 1.1s cubic-bezier(0.65, 0, 0.35, 1) infinite",
+              boxShadow: "0 0 8px #A855F7, 0 0 10px #FF2D55",
+              animation: "funtok-bar 1.2s ease-in-out infinite",
             }}
           />
         </div>
-        <span className="mt-4 text-xs font-medium tracking-wide text-zinc-400">Loading videos...</span>
-      </div>
+      )}
+
     );
   }
 
