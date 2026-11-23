@@ -27,76 +27,77 @@ jobs:
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 
-      - name: Bundle all web assets, eliminate 404s and fix hydration
+      - name: Bundle all web assets, eliminate 404s and fix hydration across all tabs
         run: |
           python3 - << 'PYEOF_INNER'
           import urllib.request, re, os, shutil
 
           headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
           base_url = "https://funtok-africa.lovable.app"
+          targets = [".output/public", "dist/client"]
 
-          req = urllib.request.Request(base_url, headers=headers)
-          html = urllib.request.urlopen(req).read().decode("utf-8")
+          def sanitize_html(raw_html):
+              # Wipe Lovable badge elements, styles, and scripts
+              h = re.sub(r'<aside\s+[^>]*id=["\']lovable-badge["\'].*?</aside>', '', raw_html, flags=re.DOTALL | re.IGNORECASE)
+              h = re.sub(r'<style[^>]*>[^<]*#lovable-badge.*?</style>', '', h, flags=re.DOTALL | re.IGNORECASE)
+              h = re.sub(r'<script[^>]*>[^<]*lovable-badge.*?</script>', '', h, flags=re.DOTALL | re.IGNORECASE)
+              h = re.sub(r'<script[^>]*src=["\']/__l5e/[^"\']+["\'][^>]*></script>', '', h, flags=re.DOTALL | re.IGNORECASE)
 
-          # 1. Permanently wipe Lovable badge elements, scripts, and styles
-          html = re.sub(r'<aside\s+[^>]*id=["\']lovable-badge["\'].*?</aside>', '', html, flags=re.DOTALL | re.IGNORECASE)
-          html = re.sub(r'<style[^>]*>[^<]*#lovable-badge.*?</style>', '', html, flags=re.DOTALL | re.IGNORECASE)
-          html = re.sub(r'<script[^>]*>[^<]*lovable-badge.*?</script>', '', html, flags=re.DOTALL | re.IGNORECASE)
-          html = re.sub(r'<script[^>]*src=["\']/__l5e/[^"\']+["\'][^>]*></script>', '', html, flags=re.DOTALL | re.IGNORECASE)
+              badge_killer_css = '''
+              <style id="funtok-badge-killer">
+                #lovable-badge, aside#lovable-badge, [id*="lovable-badge"], .lovable-badge {
+                  display: none !important;
+                  opacity: 0 !important;
+                  visibility: hidden !important;
+                  pointer-events: none !important;
+                  width: 0 !important;
+                  height: 0 !important;
+                  max-height: 0 !important;
+                  overflow: hidden !important;
+                  position: absolute !important;
+                  top: -9999px !important;
+                }
+                html, body {
+                  background-color: #000000 !important;
+                  overflow-x: hidden !important;
+                  touch-action: pan-y !important;
+                }
+              </style>
+              '''
+              h = h.replace('</head>', badge_killer_css + '</head>')
 
-          # Inject CSS to ensure no badge ever appears and prevent layout bleeding
-          badge_killer_css = '''
-          <style id="funtok-badge-killer">
-            #lovable-badge, aside#lovable-badge, [id*="lovable-badge"], .lovable-badge {
-              display: none !important;
-              opacity: 0 !important;
-              visibility: hidden !important;
-              pointer-events: none !important;
-              width: 0 !important;
-              height: 0 !important;
-              max-height: 0 !important;
-              overflow: hidden !important;
-              position: absolute !important;
-              top: -9999px !important;
-            }
-            html, body {
-              background-color: #000000 !important;
-              overflow-x: hidden !important;
-              touch-action: pan-y !important;
-            }
-          </style>
-          '''
-          html = html.replace('</head>', badge_killer_css + '</head>')
+              runtime_fix_script = '''
+              <script>
+                if (window.location.pathname.endsWith('/index.html')) {
+                  window.history.replaceState(null, '', window.location.pathname.replace(/index\.html$/, '') || '/');
+                }
+                window.addEventListener('error', function(e) {
+                  console.error('Runtime error:', e.message, e.filename, e.lineno);
+                });
+                window.addEventListener('unhandledrejection', function(e) {
+                  console.error('Unhandled rejection:', e.reason);
+                });
+              </script>
+              '''
+              return h.replace('<head>', '<head>' + runtime_fix_script)
 
-          # 2. Fix client-side hydration and path resolution for mobile
-          runtime_fix_script = '''
-          <script>
-            if (window.location.pathname.endsWith('/index.html')) {
-              window.history.replaceState(null, '', window.location.pathname.replace(/index\.html$/, '') || '/');
-            }
-            window.addEventListener('error', function(e) {
-              console.error('Runtime error:', e.message, e.filename, e.lineno);
-            });
-            window.addEventListener('unhandledrejection', function(e) {
-              console.error('Unhandled rejection:', e.reason);
-            });
-          </script>
-          '''
-          html = html.replace('<head>', '<head>' + runtime_fix_script)
-
-          # 3. Discover all assets across all pages and dynamic JS chunk imports
-          routes = ["/", "/chat", "/market", "/upload", "/auth"]
+          routes = ["/", "/auth", "/chat", "/market", "/upload"]
           all_assets = set()
+          route_htmls = {}
 
           for r in routes:
               try:
-                  r_req = urllib.request.Request(base_url + r, headers=headers)
-                  r_html = urllib.request.urlopen(r_req).read().decode("utf-8")
-                  matches = re.findall(r'["\'](/assets/[A-Za-z0-9_\-\.]+\.[a-z0-9]+)["\']', r_html)
+                  req = urllib.request.Request(base_url + r, headers=headers)
+                  raw = urllib.request.urlopen(req).read().decode("utf-8")
+                  clean = sanitize_html(raw)
+                  route_htmls[r] = clean
+                  matches = re.findall(r'["\'](/assets/[A-Za-z0-9_\-\.]+\.[a-z0-9]+)["\']', raw)
                   all_assets.update(matches)
+                  print(f"Loaded route {r} ({len(raw)} bytes)")
               except Exception as e:
                   print(f"Error checking route {r}: {e}")
 
+          # Crawl all dynamic JavaScript chunks recursively
           queue = [a for a in all_assets if a.endswith(".js")]
           visited = set(queue)
 
@@ -123,20 +124,23 @@ jobs:
 
           print(f"Completely mapped {len(all_assets)} assets across all Funtok routes and code-split chunks.")
 
-          targets = [".output/public", "dist/client"]
+          # Write out real HTML for each route to eliminate 404s and hydration mismatch
           for target in targets:
               os.makedirs(f"{target}/assets", exist_ok=True)
+              home_html = route_htmls.get("/", "")
               with open(f"{target}/index.html", "w", encoding="utf-8") as f:
-                  f.write(html)
+                  f.write(home_html)
+              with open(f"{target}/404.html", "w", encoding="utf-8") as f:
+                  f.write(home_html)
 
-              # Eliminate 404s by creating route directory index files
               for route_name in ["auth", "chat", "market", "upload"]:
+                  route_html = route_htmls.get("/" + route_name, home_html)
                   route_dir = f"{target}/{route_name}"
                   os.makedirs(route_dir, exist_ok=True)
                   with open(f"{route_dir}/index.html", "w", encoding="utf-8") as rf:
-                      rf.write(html)
+                      rf.write(route_html)
                   with open(f"{target}/{route_name}.html", "w", encoding="utf-8") as rf2:
-                      rf2.write(html)
+                      rf2.write(route_html)
 
           downloaded = 0
           for asset in sorted(all_assets):
@@ -160,7 +164,7 @@ jobs:
               raise SystemExit("No CSS stylesheet discovered; refusing to build an unstyled APK")
           if not any(asset.endswith(".js") for asset in all_assets):
               raise SystemExit("No JavaScript bundle discovered; refusing to build an empty APK")
-          print(f"Successfully packaged and verified all {downloaded} assets, including CSS and JavaScript.")
+          print(f"Successfully packaged and verified all {downloaded} assets.")
           PYEOF_INNER
 
       - name: Add Android platform
@@ -349,9 +353,9 @@ jobs:
           for styles_path in Path("android/app/src/main/res").rglob("styles.xml"):
               content = styles_path.read_text(encoding="utf-8")
               
-              # Ensure AppTheme has solid black background (prevents GPU texture glitching)
+              # Ensure both AppTheme and AppTheme.NoActionBar have solid black background and no white bars
               content = re.sub(
-                  r'(<style\s+name="AppTheme"[^>]*>)(.*?)(</style>)',
+                  r'(<style\s+name="AppTheme(?:\.NoActionBar)?"[^>]*>)(.*?)(</style>)',
                   lambda m: (
                       m.group(1) +
                       re.sub(
@@ -360,82 +364,31 @@ jobs:
                           m.group(2),
                           flags=re.DOTALL
                       ) +
-                      """
-                  <item name="android:windowBackground">#000000</item>
-                  <item name="android:colorBackground">#000000</item>
-                  <item name="android:windowTranslucentStatus">false</item>
-                  <item name="android:windowTranslucentNavigation">false</item>
-                  <item name="android:statusBarColor">@android:color/transparent</item>
-                  <item name="android:navigationBarColor">@android:color/transparent</item>
-                  <item name="android:windowLightStatusBar">false</item>
-                  <item name="android:windowLightNavigationBar">false</item>
-              """ +
-                      m.group(3)
-                  ),
-                  content,
-                  flags=re.DOTALL
-              )
-
-              # Update launch theme with splash drawable
-              content = re.sub(
-                  r'(<style\s+name="AppTheme\.NoActionBarLaunch"[^>]*>)(.*?)(</style>)',
-                  lambda m: (
-                      m.group(1) +
-                      re.sub(r'\s*<item name="android:windowBackground">.*?</item>', '', m.group(2), flags=re.DOTALL) +
-                      """
-                  <item name="android:windowBackground">@drawable/splash</item>
-              """ +
+                      '\n        <item name="android:windowBackground">@drawable/splash</item>' +
+                      '\n        <item name="android:colorBackground">#000000</item>' +
+                      '\n        <item name="android:statusBarColor">@android:color/transparent</item>' +
+                      '\n        <item name="android:navigationBarColor">@android:color/transparent</item>' +
+                      '\n        <item name="android:windowTranslucentStatus">false</item>' +
+                      '\n        <item name="android:windowTranslucentNavigation">false</item>' +
+                      '\n        <item name="android:windowLightStatusBar">false</item>' +
+                      '\n        <item name="android:windowLightNavigationBar">false</item>\n    ' +
                       m.group(3)
                   ),
                   content,
                   flags=re.DOTALL
               )
               styles_path.write_text(content, encoding="utf-8")
-          print("Updated styles.xml successfully!")
+              print(f"Updated {styles_path} with black edge-to-edge system bars.")
           EOF
 
-      - name: Configure AndroidManifest for hardware acceleration and camera
-        run: |
-          python3 - << "EOF"
-          from pathlib import Path
-          import xml.etree.ElementTree as ET
-
-          manifest_path = Path("android/app/src/main/AndroidManifest.xml")
-          content = manifest_path.read_text(encoding="utf-8")
-
-          permissions = [
-              '<uses-permission android:name="android.permission.INTERNET" />',
-              '<uses-permission android:name="android.permission.CAMERA" />',
-              '<uses-permission android:name="android.permission.RECORD_AUDIO" />',
-              '<uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />',
-              '<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />',
-              '<uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />',
-              '<uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />',
-          ]
-
-          for perm in permissions:
-              if perm not in content:
-                  content = content.replace("</manifest>", f"    {perm}\n</manifest>")
-
-          if 'android:hardwareAccelerated="true"' not in content:
-              content = content.replace("<application", '<application android:hardwareAccelerated="true"')
-
-          if 'ca-app-pub-3877753844959715~4589245523' not in content:
-              admob_meta = '    <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-3877753844959715~4589245523"/>\n'
-              content = content.replace("</application>", f"{admob_meta}</application>")
-
-          manifest_path.write_text(content, encoding="utf-8")
-          print("Updated AndroidManifest.xml successfully!")
-          EOF
-
-      - name: Build Android Debug APK
+      - name: Build Debug APK with Gradle
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug
+          ./gradlew assembleDebug --stacktrace
 
       - name: Upload Debug APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: funtok-debug-apk
+          name: app-debug
           path: android/app/build/outputs/apk/debug/app-debug.apk
