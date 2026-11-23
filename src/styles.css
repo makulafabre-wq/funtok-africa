@@ -154,3 +154,4 @@
 @utility wall-purple { background-color: oklch(0.26 0.07 300); }
 @utility wall-ocean { background-color: oklch(0.28 0.06 240); }
 @utility wall-black { background-color: var(--background); }
+import { SplashScreen } from "@/components/funtok/SplashScreen";
