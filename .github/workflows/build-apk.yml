@@ -255,9 +255,8 @@ jobs:
           done
 
       - name: Sync Capacitor Android
-        run: npx cap sync android
-
-      - name: Configure MainActivity with Android back navigation and edge-to-edge bars
+        
+name: Configure MainActivity with Android back navigation and edge-to-edge bars
         run: |
           python3 - << 'PY'
           from pathlib import Path
@@ -309,86 +308,5 @@ jobs:
                   applyImmersiveEdgeToEdge();
               }}
 
-              private void applyImmersiveEdgeToEdge() {{
-                  Window window = getWindow();
-                  window.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS | WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION);
-                  window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
-                  window.setStatusBarColor(Color.TRANSPARENT);
-                  window.setNavigationBarColor(Color.TRANSPARENT);
-
-                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {{
-                      window.setDecorFitsSystemWindows(false);
-                      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {{
-                          window.setStatusBarContrastEnforced(false);
-                          window.setNavigationBarContrastEnforced(false);
-                      }}
-                  }} else {{
-                      window.getDecorView().setSystemUiVisibility(
-                          View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                              | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                              | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                      );
-                  }}
-              }}
-
-              @Override
-              public void onWindowFocusChanged(boolean hasFocus) {{
-                  super.onWindowFocusChanged(hasFocus);
-                  if (hasFocus) {{
-                      applyImmersiveEdgeToEdge();
-                  }}
-              }}
-          }}
-          """
-          path.write_text(new_source, encoding="utf-8")
-          print("Configured Android back navigation and edge-to-edge bars.")
-          PY
-
-      - name: Configure clean launch theme and solid black background in styles.xml
-        run: |
-          python3 - << "EOF"
-          import re
-          from pathlib import Path
-
-          for styles_path in Path("android/app/src/main/res").rglob("styles.xml"):
-              content = styles_path.read_text(encoding="utf-8")
               
-              # Ensure both AppTheme and AppTheme.NoActionBar have solid black background and no white bars
-              content = re.sub(
-                  r'(<style\s+name="AppTheme(?:\.NoActionBar)?"[^>]*>)(.*?)(</style>)',
-                  lambda m: (
-                      m.group(1) +
-                      re.sub(
-                          r'\s*<item name="android:(?:windowBackground|colorBackground|windowTranslucentStatus|windowTranslucentNavigation|statusBarColor|navigationBarColor|windowLightStatusBar|windowLightNavigationBar)">.*?</item>',
-                          '',
-                          m.group(2),
-                          flags=re.DOTALL
-                      ) +
-                      '\n        <item name="android:windowBackground">@drawable/splash</item>' +
-                      '\n        <item name="android:colorBackground">#000000</item>' +
-                      '\n        <item name="android:statusBarColor">@android:color/transparent</item>' +
-                      '\n        <item name="android:navigationBarColor">@android:color/transparent</item>' +
-                      '\n        <item name="android:windowTranslucentStatus">false</item>' +
-                      '\n        <item name="android:windowTranslucentNavigation">false</item>' +
-                      '\n        <item name="android:windowLightStatusBar">false</item>' +
-                      '\n        <item name="android:windowLightNavigationBar">false</item>\n    ' +
-                      m.group(3)
-                  ),
-                  content,
-                  flags=re.DOTALL
-              )
-              styles_path.write_text(content, encoding="utf-8")
-              print(f"Updated {styles_path} with black edge-to-edge system bars.")
-          EOF
-
-      - name: Build Debug APK with Gradle
-        run: |
-          cd android
-          chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace
-
-      - name: Upload Debug APK Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-debug
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+    
