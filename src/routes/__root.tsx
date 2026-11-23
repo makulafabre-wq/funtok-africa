@@ -1,3 +1,5 @@
+import { SplashScreen } from "@/components/funtok/SplashScreen";
+
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
