@@ -49,7 +49,22 @@ function AuthPage() {
             options: { emailRedirectTo: `${getSafeOrigin()}/` },
           });
     setBusy(false);
-    if (error) {
+        if (error) {
+      let friendly = error.message;
+      const lower = friendly.toLowerCase();
+      if (lower.includes("invalid login credentials") || lower.includes("invalid grant")) {
+        friendly = "Invalid login details. Please check your email and password.";
+      } else if (lower.includes("email not confirmed")) {
+        friendly = "Please check your inbox and verify your email before signing in.";
+      } else if (lower.includes("too many requests") || lower.includes("rate limit")) {
+        friendly = "Too many attempts. Please wait a moment and try again.";
+      } else if (lower.includes("failed to fetch") || lower.includes("network")) {
+        friendly = "Network error. Please check your internet connection.";
+      }
+      toast.error(friendly);
+      return;
+    }
+
       toast.error(error.message);
       return;
     }
