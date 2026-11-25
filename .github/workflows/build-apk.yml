@@ -37,7 +37,6 @@ jobs:
           targets = [".output/public", "dist/client"]
 
           def sanitize_html(raw_html):
-              # Wipe Lovable badge elements, styles, and scripts
               h = re.sub(r'<aside\s+[^>]*id=["\']lovable-badge["\'].*?</aside>', '', raw_html, flags=re.DOTALL | re.IGNORECASE)
               h = re.sub(r'<style[^>]*>[^<]*#lovable-badge.*?</style>', '', h, flags=re.DOTALL | re.IGNORECASE)
               h = re.sub(r'<script[^>]*>[^<]*lovable-badge.*?</script>', '', h, flags=re.DOTALL | re.IGNORECASE)
@@ -124,7 +123,6 @@ jobs:
 
           print(f"Completely mapped {len(all_assets)} assets across all Funtok routes and code-split chunks.")
 
-          # Write out real HTML for each route to eliminate 404s and hydration mismatch
           for target in targets:
               os.makedirs(f"{target}/assets", exist_ok=True)
               home_html = route_htmls.get("/", "")
@@ -169,94 +167,109 @@ jobs:
 
       - name: Add Android platform
         run: |
-          npm install @capacitor/android@^8.5.3 --legacy-peer-deps
           if [ ! -d "android" ]; then
             npx cap add android
           fi
 
       - name: Generate borderless Funtok app logo and TikTok Lite splash screen
         run: |
-          sudo apt-get update && sudo apt-get install -y librsvg2-bin
+          sudo apt-get update -qq && sudo apt-get install -y -qq librsvg2-bin
 
-          # 1. Full-bleed gradient app icon (no black surrounding)
-          cat << "SVG" > /tmp/funtok_icon.svg
-          <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+          cat << 'SVGEOF' > /tmp/funtok_icon.svg
+          <svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
             <defs>
-              <linearGradient id="brandGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#a478ff" />
-                <stop offset="100%" stop-color="#fb2c5f" />
+              <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#7C3AED"/>
+                <stop offset="50%" stop-color="#C026D3"/>
+                <stop offset="100%" stop-color="#FF2D55"/>
               </linearGradient>
+              <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                <feDropShadow dx="0" dy="8" stdDeviation="16" flood-color="#000000" flood-opacity="0.4"/>
+              </filter>
             </defs>
-            <rect width="1024" height="1024" fill="url(#brandGrad)" />
-            <g transform="translate(256, 256) scale(21.3333333333)">
-              <path
-                d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594l1.051-5.558z"
-                fill="#ffffff"
-                stroke="#ffffff"
-                stroke-width="0.8"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
+            <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+            <g filter="url(#glow)">
+              <path d="M 230 110 L 290 110 L 290 280 C 290 325 255 360 210 360 C 165 360 130 325 130 280 C 130 235 165 200 210 200 C 220 200 230 202 238 206 L 238 266 C 230 262 221 260 210 260 C 199 260 190 269 190 280 C 190 291 199 300 210 300 C 221 300 230 291 230 280 Z" fill="#FFFFFF"/>
+              <path d="M 290 170 C 330 195 375 205 405 205 L 405 145 C 375 145 335 135 290 110 Z" fill="#FFFFFF"/>
             </g>
           </svg>
-          SVG
+          SVGEOF
 
-          # Write app launcher icons
-          for item in 48:mdpi 72:hdpi 96:xhdpi 144:xxhdpi 192:xxxhdpi; do
-            dim="${item%%:*}"
-            dens="${item##*:}"
-            target_dir="android/app/src/main/res/mipmap-${dens}"
-            mkdir -p "$target_dir"
-            rsvg-convert -w "$dim" -h "$dim" /tmp/funtok_icon.svg -o "${target_dir}/ic_launcher.png"
-            cp "${target_dir}/ic_launcher.png" "${target_dir}/ic_launcher_round.png"
-            cp "${target_dir}/ic_launcher.png" "${target_dir}/ic_launcher_foreground.png"
-          done
-
-          # 2. TikTok Lite style Splash Screen (Pure black, centered glowing logo, bold Funtok, tagline)
-          cat << "SPLASH_SVG" > /tmp/funtok_splash.svg
-          <svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920">
+          cat << 'SPLASHEOF' > /tmp/funtok_splash.svg
+          <svg width="1080" height="1920" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg">
             <defs>
-              <linearGradient id="brandGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#a478ff" />
-                <stop offset="100%" stop-color="#fb2c5f" />
+              <linearGradient id="sbg" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#7C3AED"/>
+                <stop offset="50%" stop-color="#C026D3"/>
+                <stop offset="100%" stop-color="#FF2D55"/>
               </linearGradient>
             </defs>
-            <rect width="1080" height="1920" fill="#000000" />
-            <g transform="translate(440, 780)">
-              <rect width="200" height="200" rx="50" fill="url(#brandGrad)" />
-              <g transform="translate(50, 50) scale(4.1666666667)">
-                <path
-                  d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594l1.051-5.558z"
-                  fill="#ffffff"
-                  stroke="#ffffff"
-                  stroke-width="1"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
+            <rect width="1080" height="1920" fill="#000000"/>
+            <g transform="translate(420, 750)">
+              <rect width="240" height="240" rx="54" fill="url(#sbg)"/>
+              <g transform="translate(240, 240) scale(0.46875) translate(-256, -256)">
+                <path d="M 230 110 L 290 110 L 290 280 C 290 325 255 360 210 360 C 165 360 130 325 130 280 C 130 235 165 200 210 200 C 220 200 230 202 238 206 L 238 266 C 230 262 221 260 210 260 C 199 260 190 269 190 280 C 190 291 199 300 210 300 C 221 300 230 291 230 280 Z" fill="#FFFFFF"/>
+                <path d="M 290 170 C 330 195 375 205 405 205 L 405 145 C 375 145 335 135 290 110 Z" fill="#FFFFFF"/>
               </g>
             </g>
-            <text x="540" y="1050" font-family="sans-serif" font-size="52" font-weight="bold" fill="#ffffff" text-anchor="middle" letter-spacing="1">Funtok</text>
-            <text x="540" y="1110" font-family="sans-serif" font-size="24" font-weight="normal" fill="#a1a1aa" text-anchor="middle" letter-spacing="0.5">Save data, infinite happiness</text>
+            <text x="540" y="1070" font-family="sans-serif" font-weight="900" font-size="52" fill="#FFFFFF" text-anchor="middle" letter-spacing="2">FUNTOK</text>
+            <text x="540" y="1120" font-family="sans-serif" font-weight="500" font-size="24" fill="#A1A1AA" text-anchor="middle" letter-spacing="1">Save data, infinite happiness</text>
           </svg>
-          SPLASH_SVG
+          SPLASHEOF
 
-          # Write splash drawables across Android screen densities
           mkdir -p android/app/src/main/res/drawable
-          rsvg-convert -w 1080 -h 1920 /tmp/funtok_splash.svg -o android/app/src/main/res/drawable/splash.png
 
-          for item in 320:480:mdpi 480:800:hdpi 720:1280:xhdpi 960:1600:xxhdpi 1280:1920:xxxhdpi; do
-            w="${item%%:*}"
-            rest="${item#*:}"
+          for spec in "48:mdpi" "72:hdpi" "96:xhdpi" "144:xxhdpi" "192:xxxhdpi"; do
+            size="${spec%%:*}"
+            dens="${spec##*:}"
+            res_dir="android/app/src/main/res/mipmap-${dens}"
+            mkdir -p "$res_dir"
+            rsvg-convert -w "$size" -h "$size" /tmp/funtok_icon.svg -o "${res_dir}/ic_launcher.png"
+            rsvg-convert -w "$size" -h "$size" /tmp/funtok_icon.svg -o "${res_dir}/ic_launcher_round.png"
+          done
+
+          for spec in "320:480:mdpi" "480:800:hdpi" "720:1280:xhdpi" "960:1600:xxhdpi" "1280:1920:xxxhdpi"; do
+            w="${spec%%:*}"
+            rest="${spec#*:}"
             h="${rest%%:*}"
             dens="${rest##*:}"
             splash_dir="android/app/src/main/res/drawable-port-${dens}"
             mkdir -p "$splash_dir"
             rsvg-convert -w "$w" -h "$h" /tmp/funtok_splash.svg -o "${splash_dir}/splash.png"
           done
+          rsvg-convert -w 480 -h 800 /tmp/funtok_splash.svg -o android/app/src/main/res/drawable/splash.png
 
       - name: Sync Capacitor Android
-        
-name: Configure MainActivity with Android back navigation and edge-to-edge bars
+        run: npx cap sync android
+
+      - name: Configure Android permissions and AdMob metadata in AndroidManifest.xml
+        run: |
+          python3 - << 'PY'
+          from pathlib import Path
+
+          manifest_path = Path("android/app/src/main/AndroidManifest.xml")
+          content = manifest_path.read_text(encoding="utf-8")
+
+          permissions = [
+              '<uses-permission android:name="android.permission.INTERNET" />',
+              '<uses-permission android:name="android.permission.CAMERA" />',
+              '<uses-permission android:name="android.permission.RECORD_AUDIO" />',
+              '<uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />',
+              '<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />',
+          ]
+          for perm in permissions:
+              if perm not in content:
+                  content = content.replace("<application", f"{perm}\n    <application")
+
+          admob_meta = '<meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-3877753844959715~4589245523"/>'
+          if 'com.google.android.gms.ads.APPLICATION_ID' not in content:
+              content = content.replace("</application>", f"    {admob_meta}\n    </application>")
+
+          manifest_path.write_text(content, encoding="utf-8")
+          print("Configured AndroidManifest.xml successfully.")
+          PY
+
+      - name: Configure MainActivity with Android back navigation and edge-to-edge bars
         run: |
           python3 - << 'PY'
           from pathlib import Path
@@ -282,6 +295,8 @@ name: Configure MainActivity with Android back navigation and edge-to-edge bars
           import android.view.View;
           import android.view.Window;
           import android.view.WindowManager;
+          import android.webkit.PermissionRequest;
+          import android.webkit.WebChromeClient;
           import androidx.activity.OnBackPressedCallback;
           import com.getcapacitor.BridgeActivity;
 
@@ -292,8 +307,13 @@ name: Configure MainActivity with Android back navigation and edge-to-edge bars
                   getWindow().setBackgroundDrawable(new ColorDrawable(Color.BLACK));
                   if (getBridge() != null && getBridge().getWebView() != null) {{
                       getBridge().getWebView().setBackgroundColor(Color.BLACK);
+                      getBridge().getWebView().setWebChromeClient(new WebChromeClient() {{
+                          @Override
+                          public void onPermissionRequest(final PermissionRequest request) {{
+                              runOnUiThread(() -> request.grant(request.getResources()));
+                          }}
+                      }});
                   }}
-                  // Back navigates browser/SPA history when available; otherwise Android leaves the app.
                   getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {{
                       @Override
                       public void handleOnBackPressed() {{
@@ -308,5 +328,84 @@ name: Configure MainActivity with Android back navigation and edge-to-edge bars
                   applyImmersiveEdgeToEdge();
               }}
 
-              
-    
+              private void applyImmersiveEdgeToEdge() {{
+                  Window window = getWindow();
+                  window.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS | WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION);
+                  window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+                  window.setStatusBarColor(Color.TRANSPARENT);
+                  window.setNavigationBarColor(Color.TRANSPARENT);
+
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {{
+                      window.setDecorFitsSystemWindows(false);
+                      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {{
+                          window.setStatusBarContrastEnforced(false);
+                          window.setNavigationBarContrastEnforced(false);
+                      }}
+                  }} else {{
+                      window.getDecorView().setSystemUiVisibility(
+                          View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                              | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                              | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                      );
+                  }}
+              }}
+
+              @Override
+              public void onWindowFocusChanged(boolean hasFocus) {{
+                  super.onWindowFocusChanged(hasFocus);
+                  if (hasFocus) {{
+                      applyImmersiveEdgeToEdge();
+                  }}
+              }}
+          }}
+          """
+          path.write_text(new_source, encoding="utf-8")
+          print("Configured MainActivity.java successfully.")
+          PY
+
+      - name: Configure clean launch theme and solid black background in styles.xml
+        run: |
+          python3 - << "EOF"
+          import re
+          from pathlib import Path
+
+          for styles_path in Path("android/app/src/main/res").rglob("styles.xml"):
+              content = styles_path.read_text(encoding="utf-8")
+              content = re.sub(
+                  r'(<style\s+name="AppTheme(?:\.NoActionBar)?"[^>]*>)(.*?)(</style>)',
+                  lambda m: (
+                      m.group(1) +
+                      re.sub(
+                          r'\s*<item name="android:(?:windowBackground|colorBackground|windowTranslucentStatus|windowTranslucentNavigation|statusBarColor|navigationBarColor|windowLightStatusBar|windowLightNavigationBar)">.*?</item>',
+                          '',
+                          m.group(2),
+                          flags=re.DOTALL
+                      ) +
+                      '\n        <item name="android:windowBackground">@drawable/splash</item>' +
+                      '\n        <item name="android:colorBackground">#000000</item>' +
+                      '\n        <item name="android:statusBarColor">@android:color/transparent</item>' +
+                      '\n        <item name="android:navigationBarColor">@android:color/transparent</item>' +
+                      '\n        <item name="android:windowTranslucentStatus">false</item>' +
+                      '\n        <item name="android:windowTranslucentNavigation">false</item>' +
+                      '\n        <item name="android:windowLightStatusBar">false</item>' +
+                      '\n        <item name="android:windowLightNavigationBar">false</item>\n    ' +
+                      m.group(3)
+                  ),
+                  content,
+                  flags=re.DOTALL
+              )
+              styles_path.write_text(content, encoding="utf-8")
+              print(f"Updated {styles_path} successfully.")
+          EOF
+
+      - name: Build Debug APK with Gradle
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace
+
+      - name: Upload Debug APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
