@@ -1,302 +1,124 @@
-name: Build Android APK
+name: Build Funtok Android APK
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     steps:
-      - name: Checkout repository
+      - name: Checkout Funtok source
         uses: actions/checkout@v4
 
-      - name: Set up Node.js (22 for Capacitor 8)
+      - name: Set up Node.js 24
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
 
       - name: Set up Java 21
         uses: actions/setup-java@v4
         with:
-          distribution: "zulu"
-          java-version: "21"
+          distribution: zulu
+          java-version: 21
 
-      - name: Install dependencies
-        run: npm install --legacy-peer-deps
+      - name: Install JavaScript dependencies
+        run: npm install --legacy-peer-deps --no-audit --no-fund
 
-      - name: Bundle all web assets, eliminate 404s and fix hydration across all tabs
+      - name: Build the exact GitHub source
+        run: npm run build
+
+      - name: Prepare local Capacitor web assets
         run: |
-          python3 - << 'PYEOF_INNER'
-          import urllib.request, re, os, shutil
+          test -s dist/client/index.html || { echo "Missing dist/client/index.html after Vite build"; exit 1; }
+          rm -rf .output/public
+          mkdir -p .output/public
+          cp -a dist/client/. .output/public/
+          test -s .output/public/index.html
+          test -n "$(find .output/public/assets -type f 2>/dev/null | head -n 1)" || { echo "No bundled JS/CSS assets found"; exit 1; }
 
-          headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
-          base_url = "https://funtok-africa.lovable.app"
-          targets = [".output/public", "dist/client"]
+      - name: Install the matching Capacitor Android platform
+        run: npm install --no-save --legacy-peer-deps --no-audit --no-fund @capacitor/android@8.6.2
 
-          def sanitize_html(raw_html):
-              h = re.sub(r'<aside\s+[^>]*id=["\']lovable-badge["\'].*?</aside>', '', raw_html, flags=re.DOTALL | re.IGNORECASE)
-              h = re.sub(r'<style[^>]*>[^<]*#lovable-badge.*?</style>', '', h, flags=re.DOTALL | re.IGNORECASE)
-              h = re.sub(r'<script[^>]*>[^<]*lovable-badge.*?</script>', '', h, flags=re.DOTALL | re.IGNORECASE)
-              h = re.sub(r'<script[^>]*src=["\']/__l5e/[^"\']+["\'][^>]*></script>', '', h, flags=re.DOTALL | re.IGNORECASE)
-
-              badge_killer_css = '''
-              <style id="funtok-badge-killer">
-                #lovable-badge, aside#lovable-badge, [id*="lovable-badge"], .lovable-badge {
-                  display: none !important;
-                  opacity: 0 !important;
-                  visibility: hidden !important;
-                  pointer-events: none !important;
-                  width: 0 !important;
-                  height: 0 !important;
-                  max-height: 0 !important;
-                  overflow: hidden !important;
-                  position: absolute !important;
-                  top: -9999px !important;
-                }
-                html, body {
-                  background-color: #000000 !important;
-                  overflow-x: hidden !important;
-                  touch-action: pan-y !important;
-                }
-              </style>
-              '''
-              h = h.replace('</head>', badge_killer_css + '</head>')
-
-              runtime_fix_script = '''
-              <script>
-                if (window.location.pathname.endsWith('/index.html')) {
-                  window.history.replaceState(null, '', window.location.pathname.replace(/index\.html$/, '') || '/');
-                }
-                window.addEventListener('error', function(e) {
-                  console.error('Runtime error:', e.message, e.filename, e.lineno);
-                });
-                window.addEventListener('unhandledrejection', function(e) {
-                  console.error('Unhandled rejection:', e.reason);
-                });
-              </script>
-              '''
-              return h.replace('<head>', '<head>' + runtime_fix_script)
-
-          routes = ["/", "/auth", "/chat", "/market", "/upload"]
-          all_assets = set()
-          route_htmls = {}
-
-          for r in routes:
-              try:
-                  req = urllib.request.Request(base_url + r, headers=headers)
-                  raw = urllib.request.urlopen(req).read().decode("utf-8")
-                  clean = sanitize_html(raw)
-                  route_htmls[r] = clean
-                  matches = re.findall(r'["\'](/assets/[A-Za-z0-9_\-\.]+\.[a-z0-9]+)["\']', raw)
-                  all_assets.update(matches)
-                  print(f"Loaded route {r} ({len(raw)} bytes)")
-              except Exception as e:
-                  print(f"Error checking route {r}: {e}")
-
-          # Crawl all dynamic JavaScript chunks recursively
-          queue = [a for a in all_assets if a.endswith(".js")]
-          visited = set(queue)
-
-          while queue:
-              curr = queue.pop(0)
-              try:
-                  url = base_url + curr
-                  c_req = urllib.request.Request(url, headers=headers)
-                  code = urllib.request.urlopen(c_req).read().decode("utf-8")
-                  matches = re.findall(r'["\'](\.?/assets/[A-Za-z0-9_\-\.]+\.[a-z0-9]+|\./[A-Za-z0-9_\-\.]+\.[a-z0-9]+)["\']', code)
-                  for m in matches:
-                      if m.startswith("./"):
-                          c = "/assets/" + m[2:]
-                      elif m.startswith("/assets/"):
-                          c = m
-                      else:
-                          continue
-                      all_assets.add(c)
-                      if c not in visited and c.endswith(".js"):
-                          visited.add(c)
-                          queue.append(c)
-              except Exception as e:
-                  print(f"Error analyzing chunk {curr}: {e}")
-
-          print(f"Completely mapped {len(all_assets)} assets across all Funtok routes and code-split chunks.")
-
-          for target in targets:
-              os.makedirs(f"{target}/assets", exist_ok=True)
-              home_html = route_htmls.get("/", "")
-              with open(f"{target}/index.html", "w", encoding="utf-8") as f:
-                  f.write(home_html)
-              with open(f"{target}/404.html", "w", encoding="utf-8") as f:
-                  f.write(home_html)
-
-              for route_name in ["auth", "chat", "market", "upload"]:
-                  route_html = route_htmls.get("/" + route_name, home_html)
-                  route_dir = f"{target}/{route_name}"
-                  os.makedirs(route_dir, exist_ok=True)
-                  with open(f"{route_dir}/index.html", "w", encoding="utf-8") as rf:
-                      rf.write(route_html)
-                  with open(f"{target}/{route_name}.html", "w", encoding="utf-8") as rf2:
-                      rf2.write(route_html)
-
-          downloaded = 0
-          for asset in sorted(all_assets):
-              full_url = base_url + asset
-              try:
-                  areq = urllib.request.Request(full_url, headers=headers)
-                  with urllib.request.urlopen(areq) as resp:
-                      content = resp.read()
-                      for target in targets:
-                          local_path = target + asset
-                          os.makedirs(os.path.dirname(local_path), exist_ok=True)
-                          with open(local_path, "wb") as out:
-                              out.write(content)
-                  downloaded += 1
-              except Exception as e:
-                  print(f"Warning downloading {asset}: {e}")
-
-          if downloaded != len(all_assets):
-              raise SystemExit(f"Asset packaging incomplete: downloaded {downloaded} of {len(all_assets)} assets")
-          if not any(asset.endswith(".css") for asset in all_assets):
-              raise SystemExit("No CSS stylesheet discovered; refusing to build an unstyled APK")
-          if not any(asset.endswith(".js") for asset in all_assets):
-              raise SystemExit("No JavaScript bundle discovered; refusing to build an empty APK")
-          print(f"Successfully packaged and verified all {downloaded} assets.")
-          PYEOF_INNER
-
-      - name: Add Android platform
+      - name: Create and sync the Android project
         run: |
-          if [ ! -d "android" ]; then
-            npx cap add android
-          fi
+          npx cap add android
+          npx cap sync android
 
-      - name: Generate borderless Funtok app logo and TikTok Lite splash screen
+      - name: Configure Android permissions and AdMob app ID
         run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq librsvg2-bin
-
-          cat << 'SVGEOF' > /tmp/funtok_icon.svg
-          <svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#7C3AED"/>
-                <stop offset="50%" stop-color="#C026D3"/>
-                <stop offset="100%" stop-color="#FF2D55"/>
-              </linearGradient>
-              <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-                <feDropShadow dx="0" dy="8" stdDeviation="16" flood-color="#000000" flood-opacity="0.4"/>
-              </filter>
-            </defs>
-            <rect width="512" height="512" rx="112" fill="url(#bg)"/>
-            <g filter="url(#glow)">
-              <path d="M 230 110 L 290 110 L 290 280 C 290 325 255 360 210 360 C 165 360 130 325 130 280 C 130 235 165 200 210 200 C 220 200 230 202 238 206 L 238 266 C 230 262 221 260 210 260 C 199 260 190 269 190 280 C 190 291 199 300 210 300 C 221 300 230 291 230 280 Z" fill="#FFFFFF"/>
-              <path d="M 290 170 C 330 195 375 205 405 205 L 405 145 C 375 145 335 135 290 110 Z" fill="#FFFFFF"/>
-            </g>
-          </svg>
-          SVGEOF
-
-          cat << 'SPLASHEOF' > /tmp/funtok_splash.svg
-          <svg width="1080" height="1920" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <linearGradient id="sbg" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#7C3AED"/>
-                <stop offset="50%" stop-color="#C026D3"/>
-                <stop offset="100%" stop-color="#FF2D55"/>
-              </linearGradient>
-            </defs>
-            <rect width="1080" height="1920" fill="#000000"/>
-            <g transform="translate(420, 750)">
-              <rect width="240" height="240" rx="54" fill="url(#sbg)"/>
-              <g transform="translate(240, 240) scale(0.46875) translate(-256, -256)">
-                <path d="M 230 110 L 290 110 L 290 280 C 290 325 255 360 210 360 C 165 360 130 325 130 280 C 130 235 165 200 210 200 C 220 200 230 202 238 206 L 238 266 C 230 262 221 260 210 260 C 199 260 190 269 190 280 C 190 291 199 300 210 300 C 221 300 230 291 230 280 Z" fill="#FFFFFF"/>
-                <path d="M 290 170 C 330 195 375 205 405 205 L 405 145 C 375 145 335 135 290 110 Z" fill="#FFFFFF"/>
-              </g>
-            </g>
-            <text x="540" y="1070" font-family="sans-serif" font-weight="900" font-size="52" fill="#FFFFFF" text-anchor="middle" letter-spacing="2">FUNTOK</text>
-            <text x="540" y="1120" font-family="sans-serif" font-weight="500" font-size="24" fill="#A1A1AA" text-anchor="middle" letter-spacing="1">Save data, infinite happiness</text>
-          </svg>
-          SPLASHEOF
-
-          mkdir -p android/app/src/main/res/drawable
-
-          for spec in "48:mdpi" "72:hdpi" "96:xhdpi" "144:xxhdpi" "192:xxxhdpi"; do
-            size="${spec%%:*}"
-            dens="${spec##*:}"
-            res_dir="android/app/src/main/res/mipmap-${dens}"
-            mkdir -p "$res_dir"
-            rsvg-convert -w "$size" -h "$size" /tmp/funtok_icon.svg -o "${res_dir}/ic_launcher.png"
-            rsvg-convert -w "$size" -h "$size" /tmp/funtok_icon.svg -o "${res_dir}/ic_launcher_round.png"
-          done
-
-          for spec in "320:480:mdpi" "480:800:hdpi" "720:1280:xhdpi" "960:1600:xxhdpi" "1280:1920:xxxhdpi"; do
-            w="${spec%%:*}"
-            rest="${spec#*:}"
-            h="${rest%%:*}"
-            dens="${rest##*:}"
-            splash_dir="android/app/src/main/res/drawable-port-${dens}"
-            mkdir -p "$splash_dir"
-            rsvg-convert -w "$w" -h "$h" /tmp/funtok_splash.svg -o "${splash_dir}/splash.png"
-          done
-          rsvg-convert -w 480 -h 800 /tmp/funtok_splash.svg -o android/app/src/main/res/drawable/splash.png
-
-      - name: Sync Capacitor Android
-        run: npx cap sync android
-
-      - name: Configure Android permissions and AdMob metadata in AndroidManifest.xml
-        run: |
-          python3 - << 'PY'
+          python3 - <<'PY'
           from pathlib import Path
+          import xml.etree.ElementTree as ET
 
+          ANDROID = "http://schemas.android.com/apk/res/android"
+          ET.register_namespace("android", ANDROID)
           manifest_path = Path("android/app/src/main/AndroidManifest.xml")
-          content = manifest_path.read_text(encoding="utf-8")
-
-          permissions = [
-              '<uses-permission android:name="android.permission.INTERNET" />',
-              '<uses-permission android:name="android.permission.CAMERA" />',
-              '<uses-permission android:name="android.permission.RECORD_AUDIO" />',
-              '<uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />',
-              '<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />',
+          tree = ET.parse(manifest_path)
+          root = tree.getroot()
+          wanted = [
+              "android.permission.INTERNET",
+              "android.permission.CAMERA",
+              "android.permission.RECORD_AUDIO",
+              "android.permission.MODIFY_AUDIO_SETTINGS",
+              "android.permission.ACCESS_NETWORK_STATE",
           ]
-          for perm in permissions:
-              if perm not in content:
-                  content = content.replace("<application", f"{perm}\n    <application")
+          existing = {p.get(f"{{{ANDROID}}}name") for p in root.findall("uses-permission")}
+          for name in wanted:
+              if name not in existing:
+                  ET.SubElement(root, "uses-permission", {f"{{{ANDROID}}}name": name})
 
-          admob_meta = '<meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-3877753844959715~4589245523"/>'
-          if 'com.google.android.gms.ads.APPLICATION_ID' not in content:
-              content = content.replace("</application>", f"    {admob_meta}\n    </application>")
+          app = root.find("application")
+          if app is None:
+              raise SystemExit("AndroidManifest.xml has no application element")
+          key = f"{{{ANDROID}}}name"
+          admob = next((m for m in app.findall("meta-data") if m.get(key) == "com.google.android.gms.ads.APPLICATION_ID"), None)
+          if admob is None:
+              admob = ET.SubElement(app, "meta-data")
+              admob.set(key, "com.google.android.gms.ads.APPLICATION_ID")
+          admob.set(f"{{{ANDROID}}}value", "@string/admob_app_id")
+          tree.write(manifest_path, encoding="utf-8", xml_declaration=True)
 
-          manifest_path.write_text(content, encoding="utf-8")
-          print("Configured AndroidManifest.xml successfully.")
+          strings_path = Path("android/app/src/main/res/values/strings.xml")
+          strings_tree = ET.parse(strings_path)
+          strings_root = strings_tree.getroot()
+          app_id = next((e for e in strings_root.findall("string") if e.get("name") == "admob_app_id"), None)
+          if app_id is None:
+              app_id = ET.SubElement(strings_root, "string", {"name": "admob_app_id"})
+          app_id.text = "ca-app-pub-3877753844959715~4589245523"
+          strings_tree.write(strings_path, encoding="utf-8", xml_declaration=True)
+          print("Android permissions and the configured AdMob application ID are present.")
           PY
 
-      - name: Configure MainActivity with Android back navigation and edge-to-edge bars
+      - name: Configure transparent system bars and Android back navigation
         run: |
-          python3 - << 'PY'
+          python3 - <<'PY'
           from pathlib import Path
           import re
 
           matches = list(Path("android/app/src/main/java").rglob("MainActivity.java"))
           if len(matches) != 1:
-              raise SystemExit(f"Expected one MainActivity.java, found {len(matches)}")
-
+              raise SystemExit(f"Expected exactly one MainActivity.java; found {len(matches)}")
           path = matches[0]
-          old_source = path.read_text(encoding="utf-8")
-          package_match = re.search(r"^\s*package\s+[\w.]+\s*;", old_source, re.MULTILINE)
-          if not package_match:
-              raise SystemExit("No package line")
-          package_line = package_match.group(0).strip()
-
-          new_source = f"""{package_line}
+          source = path.read_text(encoding="utf-8")
+          match = re.search(r"^\s*package\s+[\w.]+\s*;", source, re.MULTILINE)
+          if not match:
+              raise SystemExit("MainActivity.java has no package declaration")
+          package_line = match.group(0).strip()
+          path.write_text(f'''{package_line}
 
           import android.graphics.Color;
-          import android.graphics.drawable.ColorDrawable;
           import android.os.Build;
           import android.os.Bundle;
           import android.view.View;
           import android.view.Window;
           import android.view.WindowManager;
-          import android.webkit.PermissionRequest;
-          import android.webkit.WebChromeClient;
           import androidx.activity.OnBackPressedCallback;
           import com.getcapacitor.BridgeActivity;
 
@@ -304,16 +126,7 @@ jobs:
               @Override
               protected void onCreate(Bundle savedInstanceState) {{
                   super.onCreate(savedInstanceState);
-                  getWindow().setBackgroundDrawable(new ColorDrawable(Color.BLACK));
-                  if (getBridge() != null && getBridge().getWebView() != null) {{
-                      getBridge().getWebView().setBackgroundColor(Color.BLACK);
-                      getBridge().getWebView().setWebChromeClient(new WebChromeClient() {{
-                          @Override
-                          public void onPermissionRequest(final PermissionRequest request) {{
-                              runOnUiThread(() -> request.grant(request.getResources()));
-                          }}
-                      }});
-                  }}
+                  applyTransparentSystemBars();
                   getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {{
                       @Override
                       public void handleOnBackPressed() {{
@@ -325,87 +138,46 @@ jobs:
                           }}
                       }}
                   }});
-                  applyImmersiveEdgeToEdge();
               }}
 
-              private void applyImmersiveEdgeToEdge() {{
+              private void applyTransparentSystemBars() {{
                   Window window = getWindow();
-                  window.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS | WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION);
+                  window.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS
+                          | WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION);
                   window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
                   window.setStatusBarColor(Color.TRANSPARENT);
                   window.setNavigationBarColor(Color.TRANSPARENT);
-
                   if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {{
                       window.setDecorFitsSystemWindows(false);
-                      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {{
-                          window.setStatusBarContrastEnforced(false);
-                          window.setNavigationBarContrastEnforced(false);
-                      }}
+                      window.setStatusBarContrastEnforced(false);
+                      window.setNavigationBarContrastEnforced(false);
                   }} else {{
                       window.getDecorView().setSystemUiVisibility(
-                          View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                              | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                              | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                      );
+                              View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                                      | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                                      | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
                   }}
               }}
 
               @Override
               public void onWindowFocusChanged(boolean hasFocus) {{
                   super.onWindowFocusChanged(hasFocus);
-                  if (hasFocus) {{
-                      applyImmersiveEdgeToEdge();
-                  }}
+                  if (hasFocus) applyTransparentSystemBars();
               }}
           }}
-          """
-          path.write_text(new_source, encoding="utf-8")
-          print("Configured MainActivity.java successfully.")
+          ''', encoding="utf-8")
+          print("MainActivity configured without replacing Capacitor's WebView permission handler.")
           PY
 
-      - name: Configure clean launch theme and solid black background in styles.xml
-        run: |
-          python3 - << "EOF"
-          import re
-          from pathlib import Path
-
-          for styles_path in Path("android/app/src/main/res").rglob("styles.xml"):
-              content = styles_path.read_text(encoding="utf-8")
-              content = re.sub(
-                  r'(<style\s+name="AppTheme(?:\.NoActionBar)?"[^>]*>)(.*?)(</style>)',
-                  lambda m: (
-                      m.group(1) +
-                      re.sub(
-                          r'\s*<item name="android:(?:windowBackground|colorBackground|windowTranslucentStatus|windowTranslucentNavigation|statusBarColor|navigationBarColor|windowLightStatusBar|windowLightNavigationBar)">.*?</item>',
-                          '',
-                          m.group(2),
-                          flags=re.DOTALL
-                      ) +
-                      '\n        <item name="android:windowBackground">@drawable/splash</item>' +
-                      '\n        <item name="android:colorBackground">#000000</item>' +
-                      '\n        <item name="android:statusBarColor">@android:color/transparent</item>' +
-                      '\n        <item name="android:navigationBarColor">@android:color/transparent</item>' +
-                      '\n        <item name="android:windowTranslucentStatus">false</item>' +
-                      '\n        <item name="android:windowTranslucentNavigation">false</item>' +
-                      '\n        <item name="android:windowLightStatusBar">false</item>' +
-                      '\n        <item name="android:windowLightNavigationBar">false</item>\n    ' +
-                      m.group(3)
-                  ),
-                  content,
-                  flags=re.DOTALL
-              )
-              styles_path.write_text(content, encoding="utf-8")
-              print(f"Updated {styles_path} successfully.")
-          EOF
-
-      - name: Build Debug APK with Gradle
+      - name: Build debug APK
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace
+          ./gradlew assembleDebug --no-daemon --stacktrace
 
-      - name: Upload Debug APK Artifact
+      - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug
+          name: funtok-debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
